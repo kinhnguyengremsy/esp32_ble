@@ -1,7 +1,7 @@
 #include "esp32_ble.h"
 #include "esp32_IO.h"
 
-#define LED_DEV_BOARD   2
+#define LED_DEV_BOARD   1
 
 void setup() {
   // put your setup code here, to run once:
@@ -13,9 +13,9 @@ void loop() {
 
   Serial.println("ESP32 BLE TEST !!!");
 
-  // digitalWrite(LED_DEV_BOARD, HIGH);
+  digitalWrite(LED_DEV_BOARD, HIGH);
   delay(500);
 
-  // digitalWrite(LED_DEV_BOARD, LOW);
+  digitalWrite(LED_DEV_BOARD, LOW);
   delay(500);
 }
