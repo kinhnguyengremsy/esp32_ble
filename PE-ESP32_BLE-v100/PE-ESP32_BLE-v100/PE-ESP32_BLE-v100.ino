@@ -1,12 +1,12 @@
 #include "esp32_ble.h"
 #include "esp32_IO.h"
 
-#define LED_DEV_BOARD   34
+#define LED_DEV_BOARD  2
 
 void setup() {
   // put your setup code here, to run once:
   esp32_IO_init(LED_DEV_BOARD);
-  pinMode(34, OUTPUT);
+  pinMode(LED_DEV_BOARD, OUTPUT);
 }
 
 void loop() {
