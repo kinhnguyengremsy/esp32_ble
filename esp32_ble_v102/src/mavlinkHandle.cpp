@@ -396,21 +396,24 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 			static uint32_t timeComapreAngle = 0;
 			static bool controlRetry = true;
 
-			int16_t panSetpoint = -170;
+			int16_t panSetpoint = 170;
 			int16_t rollSetpoint = 0;
 			int16_t tiltSetpoint = -45;
 
 			if(ackCommand.command == MAV_CMD_DO_MOUNT_CONTROL)
 			{
-				uint16_t deltaPan  = abs((int16_t)mavlink.mountOrientation.roll  - panSetpoint);
-				uint16_t deltaRoll = abs((int16_t)mavlink.mountOrientation.roll  - rollSetpoint);
+				uint16_t deltaPan  = abs((int16_t)mavlink.mountOrientation.yaw - panSetpoint);
+				uint16_t deltaRoll = abs((int16_t)mavlink.mountOrientation.roll - rollSetpoint);
 				uint16_t deltaTilt = abs((int16_t)mavlink.mountOrientation.pitch - tiltSetpoint);
 
 				if(millis() - timeComapreAngle > 5000 || timeComapreAngle == 0)
 				{
 					timeComapreAngle = millis();
 
-					Serial.println("[set angle cw gimbal] delta roll :" + String(deltaRoll) + "delta tilt :" + String(deltaTilt));
+					Serial.println("[mountOrientation value] roll :" + String(mavlink.mountOrientation.roll) + "tilt :" + String(mavlink.mountOrientation.pitch) + "pan :" + String(mavlink.mountOrientation.yaw));
+					char buff[200];
+					sprintf(buff, "[set angle cw gimbal] delta roll : %f | delta tilt : %f | delta pan : %f", deltaRoll, deltaTilt, deltaPan);
+					Serial.println(buff);
 
 					if(findGimbalAxis(heartBeat.vehicle_system_id) == true)
 					{
@@ -461,7 +464,10 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 					{
 						if( deltaRoll < 5 && deltaTilt < 5 )
 						{
-							Serial.println("[set angle cw gimbal] delta roll :" + String(deltaRoll) + "delta tilt :" + String(deltaTilt));
+							Serial.println("[mountOrientation value] roll :" + String(mavlink.mountOrientation.roll) + "tilt :" + String(mavlink.mountOrientation.pitch) + "pan :" + String(mavlink.mountOrientation.yaw));
+							char buff[200];
+							sprintf(buff, "[set angle cw gimbal] delta roll : %f | delta tilt : %f | delta pan : %f", deltaRoll, deltaTilt, deltaPan);
+							Serial.println(buff);
 							Serial.println("[set angle cw gimbal] : DONE-soon");
 
 							if(ackCommand.result == MAV_RESULT_IN_PROGRESS)
@@ -475,7 +481,10 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 					{
 						if( deltaPan < 5 && deltaRoll < 5 && deltaTilt < 5 )
 						{
-							Serial.println("[set angle cw gimbal] delta roll :" + String(deltaRoll) + "delta tilt :" + String(deltaTilt));
+							Serial.println("[mountOrientation value] roll :" + String(mavlink.mountOrientation.roll) + "tilt :" + String(mavlink.mountOrientation.pitch) + "pan :" + String(mavlink.mountOrientation.yaw));
+							char buff[200];
+							sprintf(buff, "[set angle cw gimbal] delta roll : %f | delta tilt : %f | delta pan : %f", deltaRoll, deltaTilt, deltaPan);
+							Serial.println(buff);
 							Serial.println("[set angle cw gimbal] : DONE-soon");
 
 							if(ackCommand.result == MAV_RESULT_IN_PROGRESS)
@@ -507,13 +516,13 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 			static uint32_t timeComapreAngle = 0;
 			static bool controlRetry = true;
 
-			int16_t panSetpoint = 170;
+			int16_t panSetpoint = -170;
 			int16_t rollSetpoint = 0;
 			int16_t tiltSetpoint = 45;
 
 			if(ackCommand.command == MAV_CMD_DO_MOUNT_CONTROL)
 			{
-				uint16_t deltaPan  = abs((int16_t)mavlink.mountOrientation.roll  - panSetpoint);
+				uint16_t deltaPan  = abs((int16_t)mavlink.mountOrientation.yaw - panSetpoint);
 				uint16_t deltaRoll = abs((int16_t)mavlink.mountOrientation.roll - rollSetpoint);
 				uint16_t deltaTilt = abs((int16_t)mavlink.mountOrientation.pitch - tiltSetpoint);
 
@@ -521,7 +530,10 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 				{
 					timeComapreAngle = millis();
 
-					Serial.println("[set angle cw gimbal] delta roll :" + String(deltaRoll) + "delta tilt :" + String(deltaTilt));
+					Serial.println("[mountOrientation value] roll :" + String(mavlink.mountOrientation.roll) + "tilt :" + String(mavlink.mountOrientation.pitch) + "pan :" + String(mavlink.mountOrientation.yaw));
+					char buff[200];
+					sprintf(buff, "[set angle cw gimbal] delta roll : %f | delta tilt : %f | delta pan : %f", deltaRoll, deltaTilt, deltaPan);
+					Serial.println(buff);
 
 					if(findGimbalAxis(heartBeat.vehicle_system_id) == true)
 					{
@@ -572,7 +584,10 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 					{
 						if( deltaRoll < 5 && deltaTilt < 5 )
 						{
-							Serial.println("[set angle cw gimbal] delta roll :" + String(deltaRoll) + "delta tilt :" + String(deltaTilt));
+							Serial.println("[mountOrientation value] roll :" + String(mavlink.mountOrientation.roll) + "tilt :" + String(mavlink.mountOrientation.pitch) + "pan :" + String(mavlink.mountOrientation.yaw));
+							char buff[200];
+							sprintf(buff, "[set angle cw gimbal] delta roll : %f | delta tilt : %f | delta pan : %f", deltaRoll, deltaTilt, deltaPan);
+							Serial.println(buff);
 							Serial.println("[set angle cw gimbal] : DONE-soon");
 
 							if(ackCommand.result == MAV_RESULT_IN_PROGRESS)
@@ -586,7 +601,10 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 					{
 						if( deltaPan < 5 && deltaRoll < 5 && deltaTilt < 5 )
 						{
-							Serial.println("[set angle cw gimbal] delta roll :" + String(deltaRoll) + "delta tilt :" + String(deltaTilt));
+							Serial.println("[mountOrientation value] roll :" + String(mavlink.mountOrientation.roll) + "tilt :" + String(mavlink.mountOrientation.pitch) + "pan :" + String(mavlink.mountOrientation.yaw));
+							char buff[200];
+							sprintf(buff, "[set angle cw gimbal] delta roll : %f | delta tilt : %f | delta pan : %f", deltaRoll, deltaTilt, deltaPan);
+							Serial.println(buff);
 							Serial.println("[set angle cw gimbal] : DONE-soon");
 
 							if(ackCommand.result == MAV_RESULT_IN_PROGRESS)
@@ -631,22 +649,15 @@ bool mavlinkHandle_t::settingParamGimbal(void)
 {
 	bool ret = false;
 
-// 	for(uint8_t i = 0; i < JIG_TEST_NUMBER_OF_PARAM_SETTING; i++)
-// 	{
-// //		gimbal_param_test[i].value = getParamGimbalT3v3(i);
-// //
-// //		float param_value = gimbal_param_test[i].value;
-// //		uint8_t len = sizeof(gimbal_param_test[i].param_id);
-// //		char param_id[len];
-// //
-// //		memcpy(param_id, gimbal_param_test[i].param_id, len);
-// 		float param_value = 2;
-// 		char *param_id = "kinh";
+	for(uint8_t i = 0; i < JIG_TEST_NUMBER_OF_PARAM_SETTING; i++)
+	{
+		// float param_value = gimbalParam_getValueTest(GIMBAL_DEVICE_PIXY, i);
+		// char *param_id = gimbalParam_getIdTest(GIMBAL_DEVICE_PIXY, i);
 
-// 		mavlink_set_param_gimbal(MAVLINK_COMM_0, param_value, param_id);
+		// mavlink_set_param_gimbal(MAVLINK_COMM_0, param_value, param_id);
 
-// 		Serial.println("[settingParamGimbal] param_id : " + String(param_id) + "param_value : " + String(param_value));
-// 	}
+		// Serial.println("[settingParamGimbal] param_id : " + String(param_id) + "param_value : " + String(param_value));
+	}
 
 	ret = true;
 

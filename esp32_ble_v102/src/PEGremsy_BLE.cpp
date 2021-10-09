@@ -385,7 +385,7 @@ void PEGremsy_BLE::process(void)
         }
         else
         {
-            mavlink.controlGimbal(0, 0, 0, FOLLOW_MODE);
+            // mavlink.controlGimbal(0, 0, 0, FOLLOW_MODE);
         }
 
 

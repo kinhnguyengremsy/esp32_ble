@@ -101,29 +101,23 @@
 
 #define GIMBAL_PARAM_TEST_AUTOPOWER_DIR_MOTOR_ROLL          0 /// Auto Power ON
 /* Exported types ------------------------------------------------------------*/
+typedef enum
+{
+  GIMBAL_DEVICE_PIXY,
+  GIMBAL_DEVICE_T3V3,
+  GIMBAL_DEVICE_S1V3,
+  GIMBAL_DEVICE_T7,
+  GIMBAL_DEVICE_AC30000,
+}gimbalDevice_t;
 
 /* Exported constants --------------------------------------------------------*/
 
 /* Exported macro ------------------------------------------------------------*/
 /* Private variables----------------------------------------------------------*/
-struct
-{
-    float value;
-    float value_param_get;
-    int16_t index;
-    char* param_id;
-}gimbal_param_test[36];
+
 /* Exported functions --------------------------------------------------------*/
-/** @brief defaultParamGimbalJjgTest
-    @return none
-*/
-void defaultParamGimbalJjgTest(void);
-
-/** @brief defaultParamGimbalJjgTest
-    @return none
-*/
-float getParamGimbalT3v3(uint8_t pos);
-
+float gimbalParam_getValueTest(gimbalDevice_t device, uint8_t pos);
+char *gimbalParam_getIdTest(gimbalDevice_t device, uint8_t pos);
 //#ifdef __cplusplus
 //}
 //#endif
