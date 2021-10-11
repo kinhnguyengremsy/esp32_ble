@@ -31,7 +31,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stdint.h"
 /* Exported define ------------------------------------------------------------*/
-#define JIG_TEST_NUMBER_OF_PARAM_SETTING          36
+#define NUMBER_OF_GIMBAL_PARAM_TEST               36
 
 #define GIMBAL_PARAM_TEST_SBUS_MODE_CHAN          6
 #define GIMBAL_PARAM_TEST_SBUS_PITCH_CHAN         1
@@ -115,9 +115,9 @@ struct
 {
     float value;
     float value_param_get;
-    int16_t index;
+    uint16_t index;
     const char* param_id;
-}gimbal_param_setting[JIG_TEST_NUMBER_OF_PARAM_SETTING] = 
+}gimbal_param_setting[NUMBER_OF_GIMBAL_PARAM_TEST] = 
 {
     {0, 0, 0, "VERSION_X"},
     {0, 0, 41, "SBUS_YAW_CHAN"},
@@ -161,7 +161,7 @@ struct
 {
   /* data */
   float value;
-}gimbalParam_valueTestPixy[JIG_TEST_NUMBER_OF_PARAM_SETTING] =
+}gimbalParam_valueTestPixy[NUMBER_OF_GIMBAL_PARAM_TEST] =
 {
   {0},
   {GIMBAL_PARAM_TEST_SBUS_YAW_CHAN},

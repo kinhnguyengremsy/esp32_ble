@@ -94,6 +94,29 @@ typedef enum _sensor_state
     SENSOR_EN_PAN               = 0x04,     /* Encoder sensor is error at pan axis*/
 }sensor_state_;
 
+/**
+ * @brief remote_control_gimbal_t
+ * Command remote control gimbal
+ */
+typedef enum _remote_control_gimbal_t
+{
+    MAVLINK_CONTROL_MODE       = 2,
+    REMOTE_CONTROL_MODE        = 3 //MAV_MOUNT_MODE_RC_TARGETING
+} remote_control_gimbal_t;
+
+/**
+ * @brief remote_control_gimbal_t
+ * Setting mode remote control gimbal
+ */
+typedef enum _modeRC_control_gimbal_t
+{
+	GIMBAL_RC_MODE_SBUS = 1,
+	GIMBAL_RC_MODE_PPM = 6,
+	GIMBAL_RC_MODE_CAN = 11,
+	GIMBAL_RC_MODE_MAVLINK = 15,
+
+}modeRC_control_gimbal_t;
+
 typedef struct _mavlink_msg_heartbeat_t
 {
     bool flag_heartbeat;
@@ -185,11 +208,14 @@ class mavlinkHandle_t
 		void controlGimbal(int16_t tilt, int16_t roll, int16_t pan, control_gimbal_mode_t mode);
 		bool settingParamGimbal(void);
 
+		
+
 		mavlink_msg_heartbeat_t 		heartBeat;
 		mavlink_msg_raw_imu_t 			rawImu;
 		mavlink_msg_mount_orientation_t mountOrientation;
 		mavlink_msg_command_ack_t 		ackCommand;
 		gimbal_status_t					gimbalStatus;
+		mavlink_msg_param_value_t		paramValue;
 	private:
 		/* data */
 
@@ -200,6 +226,10 @@ class mavlinkHandle_t
 		void mavlink_control_motor(mavlink_channel_t channel, control_gimbal_motor_t type);
 		bool findGimbalAxis(uint8_t ID);
 		void mavlink_set_param_gimbal(mavlink_channel_t channel, float param_value, char *param_id);
+		void mavlink_param_request_read(mavlink_channel_t channel, int16_t param_index, char* param_id);
+		bool requestParamGimbal(void);
+		void mavlink_remoteControl(mavlink_channel_t channel, remote_control_gimbal_t command);
+		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
 		void sendheartbeat(mavlink_channel_t channel)
 		{
 		    mavlink_message_t       msg;
@@ -403,6 +433,16 @@ class mavlinkHandle_t
 
 //		            Serial.println("[command ack rec] : command" + String(ackCommand.command) + "| result : " + String(ackCommand.result));
 		        }break;
+				case MAVLINK_MSG_ID_PARAM_VALUE:
+				{
+					mavlink_param_value_t param_value;
+					mavlink_msg_param_value_decode(&mavlink->rxmsg, &param_value);
+
+					uint8_t len = sizeof(mavlink_param_value_t);
+					memcpy(&paramValue, &param_value, len);
+
+					Serial.println("MAVLINK_MSG_ID_PARAM_VALUE : param_index : " + String(paramValue.param_index) + " | param_value : " + String(paramValue.param_value));
+				}break;
 
 		        default:
 		            break;

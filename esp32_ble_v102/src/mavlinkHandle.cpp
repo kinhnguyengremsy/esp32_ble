@@ -639,6 +639,115 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 	}
 }
 
+/** @brief mavlink_param_request_read
+    @return none
+*/
+void mavlinkHandle_t::mavlink_param_request_read(mavlink_channel_t channel, int16_t param_index, char* param_id)
+{
+    mavlink_message_t msg;
+    mavlink_param_request_read_t request_read;
+    uint16_t len = 0;
+    
+    mav_array_memcpy(request_read.param_id, param_id, sizeof(char) * 16);
+    request_read.param_index = param_index;
+    request_read.target_component = MAV_COMP_ID_GIMBAL;
+    request_read.target_system = heartBeat.vehicle_system_id;
+    
+    mavlink_status_t    *chan_status = mavlink_get_channel_status(channel);
+    uint8_t saved_seq = chan_status->current_tx_seq;
+    
+    mavlink_msg_param_request_read_encode_chan( JIG_ID,
+                                                MAV_COMP_ID_SYSTEM_CONTROL,
+                                                channel,
+                                                &msg,
+                                                &request_read);
+                                
+    chan_status->current_tx_seq = saved_seq;
+    
+    uint8_t msgbuf[MAVLINK_MAX_PACKET_LEN];
+    len = mavlink_msg_to_send_buffer(msgbuf, &msg);
+
+    if(len > 0)
+    {
+        _mavlink_send_uart(channel,(const char*) msgbuf, len);
+    }
+}
+
+/** @brief requestParamGimbal
+    @return none
+*/
+bool mavlinkHandle_t::requestParamGimbal(void)
+{
+	static bool ret = false;
+	static uint16_t paramIndex_temp = 0;
+	static uint8_t countParamRead_true = 1;
+	static uint32_t timeOutRequestParamGimbal = 0;
+	static uint32_t timeSendRequestParam = 0;
+
+	paramIndex_temp = paramValue.param_index;
+
+	if(paramIndex_temp == gimbal_param_setting[countParamRead_true - 1].index)
+	{
+		if(millis() - timeSendRequestParam > 100)
+		{
+			timeSendRequestParam = millis();
+
+			mavlink_param_request_read(MAVLINK_COMM_0
+			, gimbal_param_setting[countParamRead_true].index
+			, (char *)gimbal_param_setting[countParamRead_true].param_id);
+
+			Serial.println("[requestParamGimbal] paramId :" \
+			+ String(gimbal_param_setting[countParamRead_true].param_id) + " ---> send index :" \
+			+ String(gimbal_param_setting[countParamRead_true].index));
+		}
+	}
+	else
+	{
+		uint16_t paramIndexReciever = paramValue.param_index;
+		uint16_t paramIndexCompare = gimbal_param_setting[countParamRead_true].index;
+
+		/// comapre param index reciever with param index set to gimbal
+		if(paramIndexReciever == paramIndexCompare)
+		{
+			Serial.println("[requestParamGimbal]  paramId:" + String(gimbal_param_setting[countParamRead_true].param_id) + " ---> valueReciever : " \
+			+ String(paramValue.param_value) + "|" \
+			+ String(gimbal_param_setting[countParamRead_true].value) \
+			+ " | countParamRead_true :" + String(countParamRead_true)
+			);
+
+			/// true -> count Up variable countParamRead_true
+			countParamRead_true ++;
+
+			/// check number of param reciever
+			if(countParamRead_true == NUMBER_OF_GIMBAL_PARAM_TEST)
+			{
+				paramIndex_temp = 0;
+				countParamRead_true = 0;
+				timeOutRequestParamGimbal = 0;
+				timeSendRequestParam = 0;
+
+				ret = true;
+			}
+		}
+	}
+
+	if(millis() - timeOutRequestParamGimbal > 30000)
+	{
+		timeOutRequestParamGimbal = millis();
+
+		Serial.println("[requestParamGimbal] timeOut request param gimbal .... try again !!!");
+
+		/// reset paramValue receiver from gimbal
+		uint8_t len = sizeof(mavlink_msg_param_value_t);
+		uint8_t d = 0;
+		memcpy(&paramValue, &d, len);
+
+		paramIndex_temp = 0;
+		countParamRead_true = 0;
+	}
+
+	return ret;
+}
 
 /** @brief settingParamGimbal
     @return none
@@ -646,21 +755,124 @@ void mavlinkHandle_t::controlGimbal(int16_t tilt, int16_t roll, int16_t pan, con
 bool mavlinkHandle_t::settingParamGimbal(void)
 {
 	bool ret = false;
+	static bool settingFlag = true;
 
-	for(uint8_t i = 0; i < JIG_TEST_NUMBER_OF_PARAM_SETTING; i++)
+	if(settingFlag == true)
 	{
-		gimbal_param_setting[i].value = gimbalParam_valueTestPixy[i].value;
+		settingFlag = false;
 
-		float param_value = gimbal_param_setting[i].value;
-		char *param_id = NULL;
-		memcpy(param_id, gimbal_param_setting[i].param_id, strlen(gimbal_param_setting[i].param_id));
+		for(uint8_t i = 0; i < NUMBER_OF_GIMBAL_PARAM_TEST; i++)
+		{
+			gimbal_param_setting[i].value = gimbalParam_valueTestPixy[i].value;
 
-		mavlink_set_param_gimbal(MAVLINK_COMM_0, param_value, param_id);
+			float param_value = gimbal_param_setting[i].value;
 
-		Serial.println("[settingParamGimbal] param_id : " + String(param_id) + "param_value : " + String(param_value));
+			/// set param to gimbal
+			mavlink_set_param_gimbal(MAVLINK_COMM_0, param_value, (char *)gimbal_param_setting[i].param_id);
+
+			Serial.println("[settingParamGimbal] param_id : " + String(gimbal_param_setting[i].param_id) + "---> param_value : " + String(param_value));
+		}
+
+		/// reset paramValue receiver from gimbal
+		uint8_t len = sizeof(mavlink_msg_param_value_t);
+		uint8_t d = 0;
+		memcpy(&paramValue, &d, len);
+	}
+	else
+	{
+		if(requestParamGimbal() == true)
+		{
+			settingFlag = true;
+
+			ret = true;
+		}
 	}
 
-	ret = true;
+	return ret;
+}
+
+/** @brief mavlink_remoteControl
+    @return none
+*/
+void mavlinkHandle_t::mavlink_remoteControl(mavlink_channel_t channel, remote_control_gimbal_t command)
+{
+    mavlink_message_t           msg;
+    mavlink_command_long_t      command_long = {0};
+    uint16_t                    len = 0;
+   
+    
+    command_long.command            = MAV_CMD_DO_MOUNT_CONFIGURE;
+    command_long.param1             = command;
+
+    command_long.target_component   = MAV_COMP_ID_GIMBAL;
+    /*
+      save and restore sequence number for chan, as it is used by
+      generated encode functions
+     */
+    
+    mavlink_status_t    *chan_status = mavlink_get_channel_status(channel);
+    uint8_t saved_seq = chan_status->current_tx_seq;
+    
+    mavlink_msg_command_long_encode_chan(	JIG_ID,
+											MAV_COMP_ID_SYSTEM_CONTROL,
+											channel,
+											&msg,
+											&command_long);
+                                
+    chan_status->current_tx_seq = saved_seq;
+    
+    uint8_t msgbuf[MAVLINK_MAX_PACKET_LEN];
+    len = mavlink_msg_to_send_buffer(msgbuf, &msg);
+    
+    if(len > 0)
+    {
+        _mavlink_send_uart(channel,(const char*) msgbuf, len);
+    }
+}
+
+/** @brief requestGimbalModeRC
+    @return none
+*/
+bool mavlinkHandle_t::requestGimbalModeRC(modeRC_control_gimbal_t modeRC)
+{
+	bool ret = false;
+	static uint32_t timeSendParam = 0;
+	char* param_id = "RADIO_TYPE";
+
+	if(paramValue.param_index == 28)
+	{
+		if(paramValue.param_value == (float)modeRC)
+		{
+			timeSendParam = 0;
+
+			Serial.println("[requestGimbalModeRC] DONE ");
+			
+			ret = true;
+		}
+	}
+	else
+	{
+		if(millis() - timeSendParam > 500 || timeSendParam == 0)
+		{
+			timeSendParam = millis();
+
+			mavlink_set_param_gimbal(MAVLINK_COMM_0, (float)modeRC, param_id);
+			Serial.println("[requestGimbalModeRC] send mode : " + String(modeRC));
+		}
+		else
+		{
+			static uint32_t timeRequestParam = 0;
+
+			if(millis() - timeRequestParam > 100 || timeRequestParam == 0)
+			{
+				timeRequestParam = millis();
+
+				mavlink_param_request_read(MAVLINK_COMM_0, 28, param_id);
+
+				Serial.println("[requestGimbalModeRC] send request mode : " + String(modeRC));
+			}
+		}
+	}
 
 	return ret;
 }
@@ -699,35 +911,26 @@ void mavlinkHandle_t::recieverData(void)
 */
 void mavlinkHandle_t::process(void *arg)
 {
+	static bool offMotor = false;
+	static bool modeRC = false;
+
 	sendData();
 	recieverData();
 
-//	static uint32_t timeSequence = 0;
-//
-//	if(millis() - timeSequence > 5000 || timeSequence == 0)
-//	{
-//		timeSequence = millis();
-//
-//		if(gimbalStatus.mode == 0)
-//		{
-//			mavlink_control_motor(MAVLINK_COMM_0, TURN_ON);
-//
-//			Serial.println("[gimbalStatus] motor : TURN ON");
-//		}
-//		else
-//		{
-//			Serial.println("[gimbalStatus] mode :" + String(gimbalStatus.mode));
-//
-//			if(gimbalStatus.mode == GIMBAL_STATE_LOCK_MODE)
-//			{
-//				mavlink_set_gimbal_mode(MAVLINK_COMM_0, FOLLOW_MODE);
-//			}
-//			else if(gimbalStatus.mode == GIMBAL_STATE_FOLLOW_MODE)
-//			{
-//				mavlink_set_gimbal_mode(MAVLINK_COMM_0, LOCK_MODE);
-//			}
-//		}
-//	}
+	if(modeRC == false)
+	{
+		modeRC = requestGimbalModeRC(GIMBAL_RC_MODE_MAVLINK);
+	}
+
+	if(gimbalStatus.mode != 0 && offMotor == false)
+	{
+		offMotor = true;
+
+		mavlink_control_motor(MAVLINK_COMM_0, TURN_OFF);
+
+		Serial.println("[gimbalStatus] motor : TURN OFF");
+	}
+
 }
 
 #endif
