@@ -70,6 +70,7 @@
 #define GIMBAL_PARAM_TEST_RC_ROLL_SPEED           60
 #define GIMBAL_PARAM_TEST_RC_YAW_SPEED            60
 
+#define GIMBAL_PARAM_TEST_GYRO_LPF_PIXY_BMI       2
 #define GIMBAL_PARAM_TEST_GYRO_LPF_T3V3_BMI       2
 #define GIMBAL_PARAM_TEST_GYRO_LPF_T3V3_ICM       4
 #define GIMBAL_PARAM_TEST_GYRO_LPF_S1V3_BMI       2
@@ -89,8 +90,8 @@
 #define GIMBAL_PARAM_TEST_ENC_CNT_RATE            10
 #define GIMBAL_PARAM_TEST_ORIEN_RATE              10
 
-#define GIMBAL_PARAM_TEST_ACSL_ROTATION_TRAVEL_MIN_PIT      -90/// Rotation TILT Up
-#define GIMBAL_PARAM_TEST_ACSL_ROTATION_TRAVEL_MAX_PIT      30/// Rotation TILT Down
+#define GIMBAL_PARAM_TEST_PIXY_ROTATION_TRAVEL_MIN_PIT           -90/// Rotation TILT Up
+#define GIMBAL_PARAM_TEST_PIXY_ROTATION_TRAVEL_MAX_PIT           90/// Rotation TILT Down
 
 #define GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MIN_PIT           -90/// Rotation TILT Up
 #define GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MAX_PIT           90/// Rotation TILT Down
@@ -99,7 +100,7 @@
 #define GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MIN_PAN           -180/// Rotation PAN Up
 #define GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MAX_PAN           180/// Rotation PAN Down
 
-#define GIMBAL_PARAM_TEST_AUTOPOWER_DIR_MOTOR_ROLL          0 /// Auto Power ON
+#define GIMBAL_PARAM_TEST_DIR_MOTOR_ROLL            0 /// Auto Power ON
 /* Exported types ------------------------------------------------------------*/
 typedef enum
 {
@@ -110,14 +111,102 @@ typedef enum
   GIMBAL_DEVICE_AC30000,
 }gimbalDevice_t;
 
+struct 
+{
+    float value;
+    float value_param_get;
+    int16_t index;
+    const char* param_id;
+}gimbal_param_setting[JIG_TEST_NUMBER_OF_PARAM_SETTING] = 
+{
+    {0, 0, 0, "VERSION_X"},
+    {0, 0, 41, "SBUS_YAW_CHAN"},
+    {0, 0, 40, "SBUS_ROLL_CHAN"},
+    {0, 0, 39, "SBUS_PITCH_CHAN"},
+    {0, 0, 42, "SBUS_MODE_CHAN"},
+    {0, 0, 10, "YAW_D"},
+    {0, 0, 4, "PITCH_D"},
+    {0, 0, 23, "NPOLES_YAW"},
+    {0, 0, 22, "NPOLES_ROLL"},
+    {0, 0, 21, "NPOLES_PITCH"},
+    {0, 0, 8, "YAW_P"},
+    {0, 0, 5, "ROLL_P"},
+    {0, 0, 2, "PITCH_P"},//12
+    {0, 0, 11, "PITCH_POWER"},
+    {0, 0, 12, "ROLL_POWER"},
+    {0, 0, 13, "YAW_POWER"},//15
+    {0, 0, 63, "JOY_AXIS"}, /// ???
+    {0, 0, 60, "RC_PITCH_SPEED"},
+    {0, 0, 61, "RC_ROLL_SPEED"},
+    {0, 0, 62, "RC_YAW_SPEED"},
+    {0, 0, 29, "GYRO_LPF"},//20
+    {0, 0, 9, "YAW_I"},
+    {0, 0, 3, "PITCH_I"},
+    {0, 0, 20, "GYRO_TRUST"},
+    {0, 0, 77, "IMU_RATE"},
+    {0, 0, 72, "HEARTBEAT_EMIT"},
+    {0, 0, 73, "STATUS_RATE"},
+    {0, 0, 74, "ENC_CNT_RATE"},
+    {0, 0, 76, "ORIEN_RATE"}, // 28
+    {0, 0, 30, "TRAVEL_MIN_PIT"}, 
+    {0, 0, 31, "TRAVEL_MAX_PIT"}, 
+    {0, 0, 32, "TRAVEL_MIN_ROLL"}, 
+    {0, 0, 33, "TRAVEL_MAX_ROLL"}, 
+    {0, 0, 69, "TRAVEL_MIN_PAN"}, 
+    {0, 0, 70, "TRAVEL_MAX_PAN"}, // 34
+    {0, 0, 25, "DIR_MOTOR_ROLL"}, // 35
+};
+
+struct 
+{
+  /* data */
+  float value;
+}gimbalParam_valueTestPixy[JIG_TEST_NUMBER_OF_PARAM_SETTING] =
+{
+  {0},
+  {GIMBAL_PARAM_TEST_SBUS_YAW_CHAN},
+  {GIMBAL_PARAM_TEST_SBUS_ROLL_CHAN},
+  {GIMBAL_PARAM_TEST_SBUS_PITCH_CHAN},
+  {GIMBAL_PARAM_TEST_SBUS_MODE_CHAN},
+  {GIMBAL_PARAM_TEST_YAW_D},
+  {GIMBAL_PARAM_TEST_PITCH_D},
+  {GIMBAL_PARAM_TEST_NPOLES_YAW},
+  {GIMBAL_PARAM_TEST_NPOLES_ROLL},
+  {GIMBAL_PARAM_TEST_NPOLES_PITCH},
+  {GIMBAL_PARAM_TEST_YAW_P_PIXY},
+  {GIMBAL_PARAM_TEST_ROLL_P_PIXY},
+  {GIMBAL_PARAM_TEST_PITCH_P_PIXY},
+  {GIMBAL_PARAM_TEST_PITCH_POWER},
+  {GIMBAL_PARAM_TEST_ROLL_POWER},
+  {GIMBAL_PARAM_TEST_YAW_POWER},
+  {GIMBAL_PARAM_TEST_JOY_AXIS},
+  {GIMBAL_PARAM_TEST_RC_PITCH_SPEED},
+  {GIMBAL_PARAM_TEST_RC_ROLL_SPEED},
+  {GIMBAL_PARAM_TEST_RC_YAW_SPEED},
+  {GIMBAL_PARAM_TEST_GYRO_LPF_PIXY_BMI},
+  {GIMBAL_PARAM_TEST_YAW_I},
+  {GIMBAL_PARAM_TEST_PITCH_I},
+  {GIMBAL_PARAM_TEST_GYRO_TRUST},
+  {GIMBAL_PARAM_TEST_IMU_RATE},
+  {GIMBAL_PARAM_TEST_HEARTBEAT_EMIT},
+  {GIMBAL_PARAM_TEST_STATUS_RATE},
+  {GIMBAL_PARAM_TEST_ENC_CNT_RATE},
+  {GIMBAL_PARAM_TEST_ORIEN_RATE},
+  {GIMBAL_PARAM_TEST_PIXY_ROTATION_TRAVEL_MIN_PIT},
+  {GIMBAL_PARAM_TEST_PIXY_ROTATION_TRAVEL_MAX_PIT},
+  {GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MIN_ROLL},
+  {GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MAX_ROLL},
+  {GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MIN_PAN},
+  {GIMBAL_PARAM_TEST_ROTATION_TRAVEL_MAX_PAN},
+  {GIMBAL_PARAM_TEST_DIR_MOTOR_ROLL},
+};
 /* Exported constants --------------------------------------------------------*/
 
 /* Exported macro ------------------------------------------------------------*/
 /* Private variables----------------------------------------------------------*/
 
 /* Exported functions --------------------------------------------------------*/
-float gimbalParam_getValueTest(gimbalDevice_t device, uint8_t pos);
-char *gimbalParam_getIdTest(gimbalDevice_t device, uint8_t pos);
+
 //#ifdef __cplusplus
 //}
 //#endif
