@@ -52,7 +52,7 @@ mav_state_t mavlinkStateSerial2, mavlinkStateSerial1;
 */
 void mavlinkHandle_t::initialize(void)
 {
-	protocol.initialize();
+	protocol.initialize();	
 }
 
 #endif
@@ -81,7 +81,7 @@ void mavlinkHandle_t::sendheartbeat(mavlink_channel_t channel)
 		}
 		else if(mavlinkSerial2.heartBeat.type == COMMAND_STOP)
 		{
-			commandStatus = COMMAND_STATUS_;
+			// commandStatus = COMMAND_STATUS_;
 		}
 		else
 		{
@@ -1132,7 +1132,7 @@ void mavlinkHandle_t::controlJig(void)
 /** @brief process
     @return none
 */
-void mavlinkHandle_t::process(void *arg)
+void mavlinkHandle_t::process( void *pvParameters )
 {
 	static bool offMotor = false;
 	static bool modeRC = false;
