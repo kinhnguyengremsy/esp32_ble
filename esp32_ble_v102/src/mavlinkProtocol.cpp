@@ -59,6 +59,11 @@
 #define MAVLINK_SERIAL2_DATA_SIZE    SERIAL_8N1
 #define MAVLINK_SERIAL2_RX_PIN       16
 #define MAVLINK_SERIAL2_TX_PIN       17
+
+#define MAVLINK_SERIAL1_BAUDRATE     115200
+#define MAVLINK_SERIAL1_DATA_SIZE    SERIAL_8N1
+#define MAVLINK_SERIAL1_RX_PIN       9
+#define MAVLINK_SERIAL1_TX_PIN       10
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
 /*variables interface */
@@ -91,8 +96,14 @@ void mavlinkProtocol::initialize(void)
 	Serial2.begin(MAVLINK_SERIAL2_BAUDRATE);
 
     /// printf to console
-    Serial.println("[mavlinkProtocol] Serial Txd is on pin: "+String(MAVLINK_SERIAL2_TX_PIN));
-    Serial.println("[mavlinkProtocol] Serial Rxd is on pin: "+String(MAVLINK_SERIAL2_RX_PIN));
+    Serial.println("[mavlinkProtocol] Serial 2 Txd is on pin: "+String(MAVLINK_SERIAL2_TX_PIN));
+    Serial.println("[mavlinkProtocol] Serial 2 Rxd is on pin: "+String(MAVLINK_SERIAL2_RX_PIN));
+
+	Serial1.begin(MAVLINK_SERIAL1_BAUDRATE);
+
+    /// printf to console
+    Serial.println("[mavlinkProtocol] Serial 1 Txd is on pin: "+String(MAVLINK_SERIAL1_TX_PIN));
+    Serial.println("[mavlinkProtocol] Serial 1 Rxd is on pin: "+String(MAVLINK_SERIAL1_RX_PIN));
 }
 
 
@@ -151,7 +162,20 @@ void comm_send_buffer(mavlink_channel_t chan, const uint8_t *buf, uint8_t len)
         //     Serial.print(buf[i], HEX);
 
         //     Serial.println("");
-        //     Serial.println("[send mavlink packet] : " + String(len) + "byte");
+        //     Serial.println("[Serial 2 send mavlink packet] : " + String(len) + "byte");
+        // }
+    }
+    else if(chan == MAVLINK_COMM_1)
+    {
+    	uint8_t length = Serial1.write(buf, len);
+
+        // if(length == len)
+        // {
+        //     for(uint8_t i = 0; i < length; i++)
+        //     Serial.print(buf[i], HEX);
+
+        //     Serial.println("");
+        //     Serial.println("[Serial 1 send mavlink packet] : " + String(len) + "byte");
         // }
     }
 }

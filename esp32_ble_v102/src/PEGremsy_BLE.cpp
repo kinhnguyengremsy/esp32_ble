@@ -374,7 +374,7 @@ void PEGremsy_BLE::process(void)
     static bool settingGimbalParam = false;
 
     mavlink.process(NULL);
-
+    
     if(isConnect == true)
     {
         heartBeatHandle();
@@ -432,7 +432,7 @@ void PEGremsy_BLE::process(void)
 
             send_paramValueCharastics(&param_value, true);
 
-            send_rawImuCharastics(&mavlink.rawImu, true);
+            send_rawImuCharastics(&mavlink.mavlinkSerial2.rawImu, true);
 
 //          char buff[300];
 //          sprintf(buff, "[raw_imu] xacc : %6d, yacc : %6d, zacc : %6d\n "
