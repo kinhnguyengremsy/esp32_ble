@@ -25,6 +25,7 @@
 #define __MAVLINKPROTOCOL_H
 
 #include "Arduino.h"
+#include <SoftwareSerial.h>
 
 /* Includes ------------------------------------------------------------------*/
 #include "../mavlink_v2/mavlink_avoid_errors.h"
@@ -64,7 +65,7 @@ static inline bool valid_channel(mavlink_channel_t chan)
 #define MAVLINK_USE_CONVENIENCE_FUNCTIONS
 #include "../mavlink_v2/ardupilotmega/mavlink.h"
 /* Exported define ------------------------------------------------------------*/
-
+#define USE_SOFTWARE_SERIAL 1
 /* Exported types ------------------------------------------------------------*/
 typedef struct _mav_state
 {
@@ -77,7 +78,7 @@ class mavlinkProtocol
     public :
         void initialize();
         bool serial_readData(HardwareSerial *serial, mavlink_channel_t channel, mav_state_t* mav);
-
+        bool swSerial_readData(mavlink_channel_t channel, mav_state_t *mav);
     mavlinkProtocol();
     virtual ~mavlinkProtocol();
 };

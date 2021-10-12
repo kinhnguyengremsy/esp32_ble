@@ -65,6 +65,70 @@ void mavlinkHandle_t::initialize(void)
 */#ifndef MAVLINK_MESSAGE_HANDLE
 #define MAVLINK_MESSAGE_HANDLE
 
+void mavlinkHandle_t::sendheartbeat(mavlink_channel_t channel)
+{
+	mavlink_message_t       msg;
+	mavlink_heartbeat_t     heartbeat;
+	uint16_t                len = 0;
+
+	if(channel == MAVLINK_COMM_0)
+	{
+		static uint8_t commandStatus = 0;
+
+		if(mavlinkSerial2.heartBeat.type == COMMAND_START)
+		{
+			commandStatus = COMMAND_STATUS_RUNNING;
+		}
+		else if(mavlinkSerial2.heartBeat.type == COMMAND_STOP)
+		{
+			commandStatus = COMMAND_STATUS_;
+		}
+		else
+		{
+
+		}
+
+		heartbeat.type          = mavlinkSerial2.heartBeat.type;//MAV_TYPE_ONBOARD_TESTER;
+		heartbeat.autopilot     = mavlinkSerial2.heartBeat.autopilot;//MAV_AUTOPILOT_INVALID;
+		heartbeat.base_mode     = mavlinkSerial2.heartBeat.base_mode;//0;
+		heartbeat.custom_mode   = mavlinkSerial2.heartBeat.custom_mode;//0;
+		heartbeat.system_status = commandStatus;//MAV_STATE_ACTIVE;
+	}
+	else if(channel == MAVLINK_COMM_1)
+	{
+		heartbeat.type          = control.type;//MAV_TYPE_ONBOARD_TESTER;
+		heartbeat.autopilot     = control.autopilot;//MAV_AUTOPILOT_INVALID;
+		heartbeat.base_mode     = control.base_mode;//0;
+		heartbeat.custom_mode   = control.custom_mode;//0;
+		heartbeat.system_status = control.system_status;//MAV_STATE_ACTIVE;
+	}
+
+	/*
+	save and restore sequence number for chan, as it is used by
+	generated encode functions
+	*/
+
+	mavlink_status_t    *chan_status = mavlink_get_channel_status((mavlink_channel_t)channel);
+	uint8_t saved_seq = chan_status->current_tx_seq;
+
+	mavlink_msg_heartbeat_encode_chan(  0x01,
+										MAV_COMP_ID_SYSTEM_CONTROL,
+										(mavlink_channel_t)channel,
+										&msg,
+										&heartbeat);
+
+	chan_status->current_tx_seq = saved_seq;
+
+	uint8_t msgbuf[MAVLINK_MAX_PACKET_LEN];
+
+	len = mavlink_msg_to_send_buffer(msgbuf, &msg);
+
+	if(len > 0)
+	{
+		_mavlink_send_uart((mavlink_channel_t)channel,(const char*) msgbuf, len);
+	}
+}
+
 /** @brief mavlink_set_gimbal_move
     @return none
 */
@@ -907,9 +971,161 @@ void mavlinkHandle_t::recieverData(void)
 		mavlinkMessageHandle(MAVLINK_COMM_0, &mavlinkSerial2, &mavlinkStateSerial2);
 	}
 
-	if(protocol.serial_readData(&Serial1, MAVLINK_COMM_1, &mavlinkStateSerial1))
+	#if (USE_SOFTWARE_SERIAL == 1)
+
+		if(protocol.swSerial_readData(MAVLINK_COMM_1, &mavlinkStateSerial1))
+		{
+			mavlinkMessageHandle(MAVLINK_COMM_1, &mavlinkSerial1, &mavlinkStateSerial1);
+		}
+
+	#else
+		if(protocol.serial_readData(&Serial1, MAVLINK_COMM_1, &mavlinkStateSerial1))
+		{
+			mavlinkMessageHandle(MAVLINK_COMM_1, &mavlinkSerial1, &mavlinkStateSerial1);
+		}
+	#endif
+}
+
+/** @brief controlJig
+    @return none
+*/
+void mavlinkHandle_t::controlJig(void)
+{
+	static controlJigState_t 	state;
+	static controlJigMode_t	mode;
+
+	switch (state)
 	{
-		mavlinkMessageHandle(MAVLINK_COMM_1, &mavlinkSerial1, &mavlinkStateSerial1);
+		case CONTROL_JIG_STATE_IDLE:
+		{
+			#if (DEBUG_STATE == 1)
+
+				Serial.println("CONTROL_JIG_STATE_IDLE");
+				delay(1000);
+				state = CONTROL_JIG_STATE_START;
+
+			#else 
+			#endif
+		}break;
+		case CONTROL_JIG_STATE_START:
+		{
+			#if (DEBUG_STATE == 1)
+
+				Serial.println("CONTROL_JIG_STATE_START");
+				delay(1000);
+				state = CONTROL_JIG_STATE_RUNNING;
+
+			#else 
+			#endif
+		}break;
+		case CONTROL_JIG_STATE_RUNNING:
+		{
+			#if (DEBUG_STATE == 1)
+
+				Serial.println("CONTROL_JIG_STATE_RUNNING");
+
+			#else 
+			#endif
+
+			switch (mode)
+			{
+				case CONTROL_JIG_MODE_SBUS:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_SBUS");
+						delay(1000);
+						mode = CONTROL_JIG_MODE_PPM;
+
+					#else 
+					#endif
+				}break;
+				case CONTROL_JIG_MODE_PPM:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_PPM");
+						delay(1000);
+						mode = CONTROL_JIG_MODE_CAN;
+
+					#else 
+					#endif
+				}break;
+				case CONTROL_JIG_MODE_CAN:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_CAN");
+						delay(1000);
+						mode = CONTROL_JIG_MODE_COM2;
+
+					#else 
+					#endif
+				}break;
+				case CONTROL_JIG_MODE_COM2:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_COM2");
+						delay(1000);
+						mode = CONTROL_JIG_MODE_COM4;
+
+					#else 
+					#endif
+				}break;
+				case CONTROL_JIG_MODE_COM4:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_COM4");
+						delay(1000);
+						mode = CONTROL_JIG_MODE_AUX;
+
+					#else 
+					#endif
+				}break;
+				case CONTROL_JIG_MODE_AUX:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_AUX");
+						delay(1000);
+						mode = CONTROL_JIG_MODE_VIRATE;
+
+					#else 
+					#endif
+				}break;
+				case CONTROL_JIG_MODE_VIRATE:
+				{
+					#if (DEBUG_STATE == 1)
+
+						Serial.println("CONTROL_JIG_MODE_VIRATE");
+						delay(1000);
+						state = CONTROL_JIG_STATE_DONE;
+
+					#else 
+					#endif
+				}break;
+				
+				default:
+					break;
+			}
+		}break;
+		case CONTROL_JIG_STATE_DONE:
+		{
+			Serial.println("CONTROL_JIG_STATE_DONE");
+			delay(1000);
+			state = CONTROL_JIG_STATE_RESET;
+		}break;
+		case CONTROL_JIG_STATE_RESET:
+		{
+			Serial.println("CONTROL_JIG_STATE_RESET");
+			delay(1000);
+			state = CONTROL_JIG_STATE_IDLE;
+		}break;
+		
+		default:
+			break;
 	}
 }
 
@@ -924,10 +1140,12 @@ void mavlinkHandle_t::process(void *arg)
 	sendData();
 	recieverData();
 
-	if(modeRC == false)
-	{
-		modeRC = requestGimbalModeRC(GIMBAL_RC_MODE_MAVLINK);
-	}
+	controlJig();
+
+	// if(modeRC == false)
+	// {
+	// 	modeRC = requestGimbalModeRC(GIMBAL_RC_MODE_MAVLINK);
+	// }
 
 	if(mavlinkSerial2.gimbalStatus.mode != 0 && offMotor == false)
 	{

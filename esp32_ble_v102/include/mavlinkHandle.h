@@ -30,6 +30,7 @@
 #include "mavlinkProtocol.h"
 /* Exported define ------------------------------------------------------------*/
 #define JIG_ID	0x01
+#define DEBUG_STATE 0
 /* Exported types ------------------------------------------------------------*/
 
 /**
@@ -116,6 +117,57 @@ typedef enum _modeRC_control_gimbal_t
 	GIMBAL_RC_MODE_MAVLINK = 15,
 
 }modeRC_control_gimbal_t;
+
+/**
+ * @brief controlJigState
+ * controlJigState
+ */
+typedef enum _controlJigState_t
+{
+	CONTROL_JIG_STATE_IDLE,
+	CONTROL_JIG_STATE_START,
+	CONTROL_JIG_STATE_RUNNING,
+	CONTROL_JIG_STATE_DONE,
+	CONTROL_JIG_STATE_RESET,
+
+}controlJigState_t;
+
+/**
+ * @brief controlJigMode
+ * controlJigMode
+ */
+typedef enum _controlJigMode_t
+{
+	CONTROL_JIG_MODE_SBUS,
+	CONTROL_JIG_MODE_PPM,
+	CONTROL_JIG_MODE_CAN,
+	CONTROL_JIG_MODE_COM2,
+	CONTROL_JIG_MODE_COM4,
+	CONTROL_JIG_MODE_AUX,
+	CONTROL_JIG_MODE_VIRATE,
+}controlJigMode_t;
+
+/**
+ * @brief commandStartStop
+ * commandStartStop
+ */
+typedef enum _commandStartStop_t	
+{
+	COMMAND_START,
+	COMMAND_STOP,
+}commandStartStop_t;
+
+/**
+ * @brief commandStatus
+ * commandStatus
+ */
+typedef enum _commandStatus_t
+{
+	COMMAND_STATUS_STANDBY,
+	COMMAND_STATUS_RUNNING,
+	COMMAND_STATUS_DONE,
+	COMMAND_STATUS_RESET,
+}commandStatus_t;
 
 typedef struct _mavlink_msg_heartbeat_t
 {
@@ -213,6 +265,11 @@ typedef struct
 class mavlinkHandle_t
 {
 	public:
+		mavlinkMsg_t mavlinkSerial2;
+		mavlinkMsg_t mavlinkSerial1;
+
+		mavlink_msg_heartbeat_t control;
+
 		void initialize(void);
 		void sendData(void);
 		void recieverData(void);
@@ -220,9 +277,7 @@ class mavlinkHandle_t
 		
 		void controlGimbal(int16_t tilt, int16_t roll, int16_t pan, control_gimbal_mode_t mode);
 		bool settingParamGimbal(void);
-
-		mavlinkMsg_t mavlinkSerial2;
-		mavlinkMsg_t mavlinkSerial1;
+		void controlJig(void);
 
 	private:
 		/* data */
@@ -238,46 +293,7 @@ class mavlinkHandle_t
 		bool requestParamGimbal(void);
 		void mavlink_remoteControl(mavlink_channel_t channel, remote_control_gimbal_t command);
 		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
-		void sendheartbeat(mavlink_channel_t channel)
-		{
-		    mavlink_message_t       msg;
-		    mavlink_heartbeat_t     heartbeat;
-		    uint16_t                len = 0;
-
-		    if(channel == MAVLINK_COMM_0)
-		    {
-		        heartbeat.type          = MAV_TYPE_ONBOARD_TESTER;
-		        heartbeat.autopilot     = MAV_AUTOPILOT_INVALID;
-		        heartbeat.base_mode     = 0;
-		        heartbeat.custom_mode   = 0;
-		        heartbeat.system_status = MAV_STATE_ACTIVE;
-		    }
-
-		    /*
-		      save and restore sequence number for chan, as it is used by
-		      generated encode functions
-		     */
-
-		    mavlink_status_t    *chan_status = mavlink_get_channel_status((mavlink_channel_t)channel);
-		    uint8_t saved_seq = chan_status->current_tx_seq;
-
-		    mavlink_msg_heartbeat_encode_chan(  0x01,
-		                                        MAV_COMP_ID_SYSTEM_CONTROL,
-												(mavlink_channel_t)channel,
-		                                        &msg,
-		                                        &heartbeat);
-
-		    chan_status->current_tx_seq = saved_seq;
-
-		    uint8_t msgbuf[MAVLINK_MAX_PACKET_LEN];
-
-		    len = mavlink_msg_to_send_buffer(msgbuf, &msg);
-
-		    if(len > 0)
-		    {
-		        _mavlink_send_uart((mavlink_channel_t)channel,(const char*) msgbuf, len);
-		    }
-		}
+		void sendheartbeat(mavlink_channel_t channel);
 		void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_state_t *mavlink)
 		{
 		    switch (mavlink->rxmsg.msgid)
