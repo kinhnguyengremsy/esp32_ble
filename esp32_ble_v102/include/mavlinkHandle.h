@@ -273,7 +273,7 @@ class mavlinkHandle_t
 		void initialize(void);
 		void sendData(void);
 		void recieverData(void);
-		void process(void *arg);
+		void process( void *pvParameters );
 		
 		void controlGimbal(int16_t tilt, int16_t roll, int16_t pan, control_gimbal_mode_t mode);
 		bool settingParamGimbal(void);
