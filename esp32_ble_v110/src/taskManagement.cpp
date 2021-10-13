@@ -94,9 +94,9 @@ void taskManagement_t::initialize(void)
     xTaskCreatePinnedToCore(
     mavlinkTask
     ,  "mavlinkTask"   // A name just for humans
-    ,  20 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  10 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
     ,  NULL
-    ,  5  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
     ,  NULL 
     ,  ARDUINO_RUNNING_CORE); 
 }

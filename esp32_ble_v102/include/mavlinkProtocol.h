@@ -65,7 +65,7 @@ static inline bool valid_channel(mavlink_channel_t chan)
 #define MAVLINK_USE_CONVENIENCE_FUNCTIONS
 #include "../mavlink_v2/ardupilotmega/mavlink.h"
 /* Exported define ------------------------------------------------------------*/
-#define USE_SOFTWARE_SERIAL 0
+#define USE_SOFTWARE_SERIAL 1
 /* Exported types ------------------------------------------------------------*/
 typedef struct _mav_state
 {

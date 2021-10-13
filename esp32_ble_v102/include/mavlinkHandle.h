@@ -30,13 +30,6 @@
 #include "mavlinkProtocol.h"
 /* Exported define ------------------------------------------------------------*/
 #define JIG_ID	0x01
-#define DEBUG_STATE 0
-#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2				1
-#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1				0
-#define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2		0
-#define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL1		0
-#define DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL2				0
-#define DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL1				0
 /* Exported types ------------------------------------------------------------*/
 
 /**
@@ -130,7 +123,7 @@ typedef enum _modeRC_control_gimbal_t
  */
 typedef enum _controlJigState_t
 {
-	CONTROL_JIG_STATE_IDLE,
+	CONTROL_JIG_STATE_IDLE = 0,
 	CONTROL_JIG_STATE_START,
 	CONTROL_JIG_STATE_RUNNING,
 	CONTROL_JIG_STATE_DONE,
@@ -144,7 +137,7 @@ typedef enum _controlJigState_t
  */
 typedef enum _controlJigMode_t
 {
-	CONTROL_JIG_MODE_SBUS,
+	CONTROL_JIG_MODE_SBUS = 1,
 	CONTROL_JIG_MODE_PPM,
 	CONTROL_JIG_MODE_CAN,
 	CONTROL_JIG_MODE_COM2,
@@ -159,7 +152,7 @@ typedef enum _controlJigMode_t
  */
 typedef enum _commandStartStop_t	
 {
-	COMMAND_START,
+	COMMAND_START = 1,
 	COMMAND_STOP,
 }commandStartStop_t;
 
@@ -169,7 +162,7 @@ typedef enum _commandStartStop_t
  */
 typedef enum _commandStatus_t
 {
-	COMMAND_STATUS_STANDBY,
+	COMMAND_STATUS_STANDBY = 1,
 	COMMAND_STATUS_RUNNING,
 	COMMAND_STATUS_DONE,
 	COMMAND_STATUS_RESET,
@@ -300,261 +293,9 @@ class mavlinkHandle_t
 		void mavlink_remoteControl(mavlink_channel_t channel, remote_control_gimbal_t command);
 		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
 		void sendheartbeat(mavlink_channel_t channel);
-		void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_state_t *mavlink)
-		{
-		    switch (mavlink->rxmsg.msgid)
-		    {
-		        case MAVLINK_MSG_ID_HEARTBEAT:
-		        {
-		            mavlink_heartbeat_t heartbeat;
-		            mavlink_msg_heartbeat_decode(&mavlink->rxmsg, &heartbeat);
+		bool getGimbalReturnHome(void);
+		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC);
 
-		            msg->heartBeat.flag_heartbeat = true;
-		            msg->heartBeat.vehicle_system_id = mavlink->rxmsg.sysid;
-
-					uint8_t len = sizeof(mavlink_heartbeat_t);
-					memcpy(&msg->heartBeat, &heartbeat, len);
-
-					#if(DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2 == 1)
-
-						char buffHeartbeatSr1[300];
-
-						if(channel == MAVLINK_COMM_0)
-						{
-							sprintf(buffHeartbeatSr1, "[heartbeat Serial2] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
-								,heartbeat.autopilot
-								,heartbeat.base_mode
-								,heartbeat.custom_mode
-								,heartbeat.mavlink_version
-								,heartbeat.system_status
-								,heartbeat.type
-							);
-
-							Serial.println(buffHeartbeatSr1);
-						}
-
-					#endif
-
-					#if(DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1 == 1)
-
-						char buffHeartbeatSr2[300];
-
-						if(channel == MAVLINK_COMM_1)
-						{
-							sprintf(buffHeartbeatSr2, "[heartbeat Serial1] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
-								,heartbeat.autopilot
-								,heartbeat.base_mode
-								,heartbeat.custom_mode
-								,heartbeat.mavlink_version
-								,heartbeat.system_status
-								,heartbeat.type
-							);
-
-							Serial.println(buffHeartbeatSr2);
-						}
-
-					#endif		            
-		        }break;
-		        case MAVLINK_MSG_ID_SYS_STATUS:
-		        {
-		            mavlink_sys_status_t              packet;
-		            mavlink_msg_sys_status_decode(&mavlink->rxmsg, &packet);
-
-		            /* Get voltage battery*/
-		            msg->gimbalStatus.voltage_battery   = packet.voltage_battery;
-
-		            msg->gimbalStatus.load              = packet.load;
-
-		            /* Check gimbal's motor */
-		            if(packet.errors_count1 & 0x10)
-		            {
-		            	msg->gimbalStatus.state = GIMBAL_STATE_ON;
-
-		                /* Check gimbal is follow mode*/
-		                if(packet.errors_count1 & 0x01)
-		                {
-		                	msg->gimbalStatus.mode = GIMBAL_STATE_FOLLOW_MODE;
-		                }
-		                else
-		                {
-		                	msg->gimbalStatus.mode = GIMBAL_STATE_LOCK_MODE;
-		                }
-		            }
-		            /* Check gimbal is initializing*/
-		            else if(packet.errors_count1 & 0x20)
-		            {
-		            	msg->gimbalStatus.state = GIMBAL_STATE_INIT;
-		            }
-		            else if(packet.errors_count1 & 0x04)
-		            {
-		                /* Check gimbal is error state*/
-		            	msg->gimbalStatus.state = GIMBAL_STATE_ERROR;
-		            }
-		            else if(!(packet.errors_count1 & 0x00))
-		            {
-		            	msg->gimbalStatus.state    = GIMBAL_STATE_OFF;
-		            	msg->gimbalStatus.mode     = GIMBAL_STATE_OFF;
-		            }
-		            else if((packet.errors_count1 & GIMBAL_STATE_MAPPING_MODE) == GIMBAL_STATE_MAPPING_MODE)
-		            {
-		            	msg->gimbalStatus.state    = GIMBAL_STATE_MAPPING_MODE;
-		            }
-
-		            /* Check gimbal's sensor status */
-		            if(packet.errors_count2 & 0x01)
-		            {
-		            	msg->gimbalStatus.sensor |= SENSOR_IMU_ERROR;
-		            }
-		            if(packet.errors_count2 & 0x02)
-		            {
-		            	msg->gimbalStatus.sensor |= SENSOR_EN_TILT;
-		            }
-		            if(packet.errors_count2 & 0x04)
-		            {
-		            	msg->gimbalStatus.sensor |= SENSOR_EN_ROLL;
-		            }
-		            if(packet.errors_count2 & 0x08)
-		            {
-		            	msg->gimbalStatus.sensor |= SENSOR_EN_PAN;
-		            }
-		            else
-		            {
-		            	msg->gimbalStatus.sensor = SENSOR_OK;
-		            }
-
-		            /// kiem tra gimbal StartUp calib
-
-		            if((packet.errors_count1 & GIMBAL_STATE_SENSOR_CALIB) == GIMBAL_STATE_SENSOR_CALIB)
-		            {
-		            	msg->gimbalStatus.startUpCalib_running = 1;
-		            }
-		            else
-		            {
-		            	msg->gimbalStatus.startUpCalib_running = 2;
-		            }
-
-		            if((packet.errors_count1 & 0x20) == 0x20)
-		            {
-		            	msg->gimbalStatus.first_calib_motor = 1;
-		            }
-		            else
-		            {
-		            	msg->gimbalStatus.first_calib_motor = 2;
-		            }
-
-		        }break;
-		        case MAVLINK_MSG_ID_MOUNT_ORIENTATION:
-		        {
-		        	mavlink_mount_orientation_t mount_orientation;
-		        	mavlink_msg_mount_orientation_decode(&mavlink->rxmsg, &mount_orientation);
-
-		            uint8_t len = sizeof(mavlink_mount_orientation_t);
-		            memcpy(&msg->mountOrientation, &mount_orientation, len);
-
-
-					#if(DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2 == 1)
-
-						char buffMountOrienSr2[100];
-
-						if(channel == MAVLINK_COMM_0)
-						{
-							sprintf(buffMountOrienSr2, "[mountOrientation Serial2] pitch : %f, roll : %f, yaw : %f, time_boot_ms : %7d, yaw_absolute : %f"
-								,msg->mountOrientation.pitch
-								,msg->mountOrientation.roll
-								,msg->mountOrientation.yaw
-								,msg->mountOrientation.time_boot_ms
-								,msg->mountOrientation.yaw_absolute
-							);
-
-							Serial.println(buffMountOrienSr2);
-						}
-						
-
-					#endif
-
-					#if(DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL1 == 1)
-
-						char buffMountOrienSr1[100];
-
-						if(channel == MAVLINK_COMM_1)
-						{
-							sprintf(buffMountOrienSr1, "[mountOrientation Serial1] pitch : %f, roll : %f, yaw : %f, time_boot_ms : %7d, yaw_absolute : %f"
-								,msg->mountOrientation.pitch
-								,msg->mountOrientation.roll
-								,msg->mountOrientation.yaw
-								,msg->mountOrientation.time_boot_ms
-								,msg->mountOrientation.yaw_absolute
-							);
-
-							Serial.println(buffMountOrienSr1);
-						}
-
-					#endif
-		        }break;
-		        case MAVLINK_MSG_ID_RAW_IMU:
-		        {
-		        	mavlink_raw_imu_t raw_imu;
-		        	mavlink_msg_raw_imu_decode(&mavlink->rxmsg, &raw_imu);
-
-
-		            uint8_t len = sizeof(mavlink_raw_imu_t);
-		            memcpy(&msg->rawImu, &raw_imu, len);
-//		            Serial.println("[raw_imu] len : " + String(len));
-
-//		            char buff[300];
-//		            sprintf(buff, "[raw_imu] xacc : %6d | %6d, yacc : %6d | %6d, zacc : %6d | %6d\n "
-//		            		"xgyro : %6d | %6d, ygyro : %6d | %6d, zgyro : %6d | %6d\n "
-//		            		"xmag : %6d | %6d, ymag : %6d | %6d, zmag : %6d | %6d\n "
-//		            		"id : %2d | %2d, temperature : %2d | %2d"
-//		                ,raw_imu.xacc, rawImu.xacc
-//		                ,raw_imu.yacc, rawImu.yacc
-//		                ,raw_imu.zacc, rawImu.zacc
-//		                ,raw_imu.xgyro, rawImu.xgyro
-//		                ,raw_imu.ygyro, rawImu.ygyro
-//		                ,raw_imu.zgyro, rawImu.zgyro
-//		                ,raw_imu.xmag, rawImu.xmag
-//		                ,raw_imu.ymag, rawImu.ymag
-//		                ,raw_imu.zmag, rawImu.zmag
-//						,raw_imu.id, rawImu.id
-//						,raw_imu.temperature, rawImu.temperature
-//		            );
-//
-//		            Serial.println(buff);
-		        }break;
-		        case MAVLINK_MSG_ID_COMMAND_ACK:
-		        {
-		        	mavlink_command_ack_t ack;
-		        	mavlink_msg_command_ack_decode(&mavlink->rxmsg, &ack);
-
-
-		            uint8_t len = sizeof(mavlink_command_ack_t);
-		            memcpy(&msg->ackCommand, &ack, len);
-
-//		            Serial.println("[command ack rec] : command" + String(ackCommand.command) + "| result : " + String(ackCommand.result));
-		        }break;
-				case MAVLINK_MSG_ID_PARAM_VALUE:
-				{
-					mavlink_param_value_t param_value;
-					mavlink_msg_param_value_decode(&mavlink->rxmsg, &param_value);
-
-					uint8_t len = sizeof(mavlink_param_value_t);
-					memcpy(&msg->paramValue, &param_value, len);
-
-					#if (DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL2 == 1)
-						if(channel == MAVLINK_COMM_0)
-						Serial.println("MAVLINK_MSG_ID_PARAM_VALUE : param_index : " + String(msg->paramValue.param_index) + " | param_value : " + String(msg->paramValue.param_value));
-					#endif
-
-					# if(DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL1 == 1)
-						if(channel == MAVLINK_COMM_1)
-						Serial.println("MAVLINK_MSG_ID_PARAM_VALUE : param_index : " + String(msg->paramValue.param_index) + " | param_value : " + String(msg->paramValue.param_value));
-					#endif
-				}break;
-
-		        default:
-		            break;
-		    }
-		}
 };
 /* Exported constants --------------------------------------------------------*/
 extern mavlinkHandle_t mavlink;

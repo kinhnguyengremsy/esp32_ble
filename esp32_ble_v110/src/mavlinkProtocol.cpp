@@ -23,6 +23,7 @@
 /* Includes------------------------------------------------------------------------------*/
 #include "mavlinkProtocol.h"
 #include "../mavlink_v2/mavlink_helpers.h"
+
 //#include "FastSerial.h"
 /* Private typedef------------------------------------------------------------------------------*/
 /* Private define------------------------------------------------------------------------------*/
@@ -59,11 +60,17 @@
 #define MAVLINK_SERIAL2_DATA_SIZE    SERIAL_8N1
 #define MAVLINK_SERIAL2_RX_PIN       16
 #define MAVLINK_SERIAL2_TX_PIN       17
+
+#define MAVLINK_SERIAL1_BAUDRATE     115200
+#define MAVLINK_SERIAL1_DATA_SIZE    SERIAL_8N1
+#define MAVLINK_SERIAL1_RX_PIN       9
+#define MAVLINK_SERIAL1_TX_PIN       10
+
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
 /*variables interface */
 mavlink_system_t    mavlink_system = {MAVLINK_COMM_0, MAV_COMP_ID_SYSTEM_CONTROL};
-
+SoftwareSerial swSerial;
 //FastSerialPort0(Serial2);
 /* Private function prototypes------------------------------------------------------------------------------*/
 /* Private functions------------------------------------------------------------------------------*/
@@ -91,8 +98,35 @@ void mavlinkProtocol::initialize(void)
 	Serial2.begin(MAVLINK_SERIAL2_BAUDRATE);
 
     /// printf to console
-    Serial.println("[mavlinkProtocol] Serial Txd is on pin: "+String(MAVLINK_SERIAL2_TX_PIN));
-    Serial.println("[mavlinkProtocol] Serial Rxd is on pin: "+String(MAVLINK_SERIAL2_RX_PIN));
+    Serial.println("[mavlinkProtocol] Serial 2 Txd is on pin: "+String(MAVLINK_SERIAL2_TX_PIN));
+    Serial.println("[mavlinkProtocol] Serial 2 Rxd is on pin: "+String(MAVLINK_SERIAL2_RX_PIN));
+
+    #if (USE_SOFTWARE_SERIAL == 1)
+
+        swSerial.begin(MAVLINK_SERIAL1_BAUDRATE, SWSERIAL_8N1, 18, 19, false, 256);
+
+        Serial.println("[mavlinkProtocol] swSerial Txd is on pin: "+String(18));
+        Serial.println("[mavlinkProtocol] swSerial Rxd is on pin: "+String(19));
+
+        if (!swSerial) 
+        { 
+            // If the object did not initialize, then its configuration is invalid
+            Serial.println("Invalid SoftwareSerial pin configuration, check config"); 
+            while (1) 
+            { // Don't continue with invalid configuration
+                delay (1000);
+            }
+        }
+
+    #else
+
+        Serial1.begin(MAVLINK_SERIAL1_BAUDRATE);
+
+        /// printf to console
+        Serial.println("[mavlinkProtocol] Serial 1 Txd is on pin: "+String(MAVLINK_SERIAL1_TX_PIN));
+        Serial.println("[mavlinkProtocol] Serial 1 Rxd is on pin: "+String(MAVLINK_SERIAL1_RX_PIN));
+
+    #endif
 }
 
 
@@ -106,7 +140,7 @@ void mavlinkProtocol::initialize(void)
 */#ifndef MAVLINK_PROTOCOL_READ_WRITE_DATA
 #define MAVLINK_PROTOCOL_READ_WRITE_DATA
 
-/** @brief send a buffer out a MAVLink channel
+/** @brief serial_readData
     @return none
 */
 bool mavlinkProtocol::serial_readData(HardwareSerial *serial, mavlink_channel_t channel, mav_state_t *mav)
@@ -126,6 +160,29 @@ bool mavlinkProtocol::serial_readData(HardwareSerial *serial, mavlink_channel_t 
     return ret;
 }
 
+/** @brief swSerial_readData
+    @return none
+*/
+bool mavlinkProtocol::swSerial_readData(mavlink_channel_t channel, mav_state_t *mav)
+{
+    bool ret = false;
+
+    if(swSerial.available() > 0)
+    {
+        uint8_t c = swSerial.read();
+
+        // Serial.println("swSerial :");
+        // Serial.println(c, HEX);
+
+        if(mavlink_parse_char(channel, c, &mav->rxmsg, &mav->status))
+        {
+            ret = true;
+        }
+    }
+
+    return ret;
+}
+
 /** @brief send a buffer out a MAVLink channel
     @param[in] chan
     @param[in] buf
@@ -134,6 +191,9 @@ bool mavlinkProtocol::serial_readData(HardwareSerial *serial, mavlink_channel_t 
 */
 void comm_send_buffer(mavlink_channel_t chan, const uint8_t *buf, uint8_t len)
 {
+    static bool useDebugComm_0 = false;
+    static bool useDebugComm_1 = false;
+
     /// kiem tra channel co ton tai
     if(!valid_channel(chan))
     {
@@ -143,16 +203,61 @@ void comm_send_buffer(mavlink_channel_t chan, const uint8_t *buf, uint8_t len)
     /// send data to serial with mavlink channel
     if(chan == MAVLINK_COMM_0)
     {
-    	uint8_t length = Serial2.write(buf, len);
+        if(useDebugComm_0 == false)
+        {
+            Serial2.write(buf, len);
+        }
+        else
+        {
+            uint8_t length = Serial2.write(buf, len);
 
-        // if(length == len)
-        // {
-        //     for(uint8_t i = 0; i < length; i++)
-        //     Serial.print(buf[i], HEX);
+            if(length == len)
+            {
+                for(uint8_t i = 0; i < length; i++)
+                Serial.print(buf[i], HEX);
 
-        //     Serial.println("");
-        //     Serial.println("[send mavlink packet] : " + String(len) + "byte");
-        // }
+                Serial.println("");
+                Serial.println("[Serial 2 send mavlink packet] : " + String(len) + "byte");
+            }
+        }
+    }
+    else if(chan == MAVLINK_COMM_1)
+    {
+        if(useDebugComm_1 == false)
+        {
+            #if(USE_SOFTWARE_SERIAL == 1)
+                swSerial.write(buf, len);
+            #else
+                Serial1.write(buf, len);
+            #endif
+        }
+        else
+        {
+            #if(USE_SOFTWARE_SERIAL == 1)
+                uint8_t length = swSerial.write(buf, len);
+
+                if(length == len)
+                {
+                    for(uint8_t i = 0; i < length; i++)
+                    Serial.print(buf[i], HEX);
+
+                    Serial.println("");
+                    Serial.println("[Serial 1 send mavlink packet] : " + String(len) + "byte");
+                }
+            #else
+                uint8_t length = Serial1.write(buf, len);
+
+                if(length == len)
+                {
+                    for(uint8_t i = 0; i < length; i++)
+                    Serial.print(buf[i], HEX);
+
+                    Serial.println("");
+                    Serial.println("[Serial 1 send mavlink packet] : " + String(len) + "byte");
+                }
+            #endif
+
+        }
     }
 }
 

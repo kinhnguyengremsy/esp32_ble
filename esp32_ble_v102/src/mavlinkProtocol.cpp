@@ -103,10 +103,10 @@ void mavlinkProtocol::initialize(void)
 
     #if (USE_SOFTWARE_SERIAL == 1)
 
-        swSerial.begin(MAVLINK_SERIAL1_BAUDRATE, SWSERIAL_8N1, 18, 19, false, 256);
+        swSerial.begin(9600, SWSERIAL_8N1, 18, 19, false, 256);
 
-        Serial.println("[mavlinkProtocol] swSerial Txd is on pin: "+String(18));
-        Serial.println("[mavlinkProtocol] swSerial Rxd is on pin: "+String(19));
+        Serial.println("[mavlinkProtocol] swSerial Txd is on pin: "+String(19));
+        Serial.println("[mavlinkProtocol] swSerial Rxd is on pin: "+String(18));
 
         if (!swSerial) 
         { 

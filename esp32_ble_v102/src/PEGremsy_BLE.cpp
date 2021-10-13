@@ -375,7 +375,6 @@ void PEGremsy_BLE::process(void)
     static uint32_t test = 50;
     static float testFloat = 1;
     static uint32_t timeSequence;
-    static bool settingGimbalParam = false;
 
     // mavlink.process(NULL);
     
@@ -383,7 +382,7 @@ void PEGremsy_BLE::process(void)
     {
         heartBeatHandle();
 
-        if(millis() - timeSequence > 1000)
+        if(millis() - timeSequence > 100)
         {
             timeSequence = millis();
 
