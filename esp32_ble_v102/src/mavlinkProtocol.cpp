@@ -56,12 +56,12 @@
  * SERIAL_8O2   8-bit Odd  parity 2 stop bit
 */
 
-#define MAVLINK_SERIAL2_BAUDRATE     9600
+#define MAVLINK_SERIAL2_BAUDRATE     115200
 #define MAVLINK_SERIAL2_DATA_SIZE    SERIAL_8N1
 #define MAVLINK_SERIAL2_RX_PIN       16
 #define MAVLINK_SERIAL2_TX_PIN       17
 
-#define MAVLINK_SERIAL1_BAUDRATE     9600
+#define MAVLINK_SERIAL1_BAUDRATE     115200
 #define MAVLINK_SERIAL1_DATA_SIZE    SERIAL_8N1
 #define MAVLINK_SERIAL1_RX_PIN       9
 #define MAVLINK_SERIAL1_TX_PIN       10
@@ -191,7 +191,7 @@ bool mavlinkProtocol::swSerial_readData(mavlink_channel_t channel, mav_state_t *
 */
 void comm_send_buffer(mavlink_channel_t chan, const uint8_t *buf, uint8_t len)
 {
-    static bool useDebugComm_0 = true;
+    static bool useDebugComm_0 = false;
     static bool useDebugComm_1 = false;
 
     /// kiem tra channel co ton tai

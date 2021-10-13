@@ -60,11 +60,6 @@
 #define TYPE_DEVICE      0x02
 #define VERSION_DEVICE   0x02
 
-#if CONFIG_FREERTOS_UNICORE
-#define ARDUINO_RUNNING_CORE 0
-#else
-#define ARDUINO_RUNNING_CORE 1
-#endif
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
 static const char *TAG = "BLE";
@@ -90,15 +85,11 @@ bool isConnect;
 uint8_t bufferRecieverHeartBeat[10];
 uint8_t bufferRecieverParamValue[26];
 
-mavlinkHandle_t mavlink;
+extern mavlinkHandle_t mavlink;
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 /* Private function prototypes------------------------------------------------------------------------------*/
-/** @brief  mavlinkTask
-    @return none
-*/
-void mavlinkTask( void *pvParameters );
 /* Private functions------------------------------------------------------------------------------*/
 /** @group PEGremsy_BLE_CONFIGURATION
     @{
@@ -129,6 +120,8 @@ class CallbackConnect: public BLEServerCallbacks {
 
         BLEDevice::startAdvertising();
 
+        Serial1.println("[     BLE     ] : Disconnected");
+
         isConnect = false;
     }
 
@@ -138,6 +131,8 @@ class CallbackConnect: public BLEServerCallbacks {
     void onConnect(BLEServer *pBLEServer) {
         ESP_LOGI(TAG,"Connected");
         ESP_LOGI(TAG,"Connected Id %d - Count %d \n", pBLEServer->getConnId(), pBLEServer->getConnectedCount());
+
+        Serial1.println("[     BLE     ] : Connected Id :" + String(pBLEServer->getConnId()) + " - Count :" + String(pBLEServer->getConnectedCount()));
 
         if (pBLEServer->getConnectedCount() < 1) {
             BLEDevice::startAdvertising();
@@ -325,19 +320,8 @@ void PEGremsy_BLE::initialize(void)
 
     Serial.println("start advertising");
 
-    mavlink.initialize();
+    pinMode(2, OUTPUT);
 
-    Serial.println("start mavlink");
-
-  // Now set up two tasks to run independently.
-  xTaskCreatePinnedToCore(
-    mavlinkTask
-    ,  "mavlinkTask"   // A name just for humans
-    ,  10 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
-    ,  NULL
-    ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
-    ,  NULL 
-    ,  ARDUINO_RUNNING_CORE); 
 }
 
 /** @brief  initialize
@@ -380,17 +364,6 @@ bool PEGremsy_BLE::heartBeatHandle(void)
     return ret;
 }
 
-/** @brief  mavlinkTask
-    @return none
-*/
-void mavlinkTask( void *pvParameters )
-{
-    for(;;)
-    {
-        mavlink.process(NULL);
-    }
-}
-
 /** @brief  process
     @return none
 */
@@ -410,19 +383,14 @@ void PEGremsy_BLE::process(void)
     {
         heartBeatHandle();
 
-        if(settingGimbalParam == false)
-        {
-            settingGimbalParam = mavlink.settingParamGimbal();
-        }
-        else
-        {
-            // mavlink.controlGimbal(0, 0, 0, FOLLOW_MODE);
-        }
-
-
         if(millis() - timeSequence > 1000)
         {
             timeSequence = millis();
+
+            static bool state = false;
+            digitalWrite(2, state);
+
+            state = !state;
 
             testFloat+=0.1;
 

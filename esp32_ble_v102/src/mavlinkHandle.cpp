@@ -73,34 +73,46 @@ void mavlinkHandle_t::sendheartbeat(mavlink_channel_t channel)
 
 	if(channel == MAVLINK_COMM_0)
 	{
-		static uint8_t commandStatus = 0;
+		// static uint8_t commandStatus = 0;
 
-		if(mavlinkSerial2.heartBeat.type == COMMAND_START)
-		{
-			commandStatus = COMMAND_STATUS_RUNNING;
-		}
-		else if(mavlinkSerial2.heartBeat.type == COMMAND_STOP)
-		{
-			// commandStatus = COMMAND_STATUS_;
-		}
-		else
-		{
+		// if(mavlinkSerial2.heartBeat.type == COMMAND_START)
+		// {
+		// 	commandStatus = COMMAND_STATUS_RUNNING;
+		// }
+		// else if(mavlinkSerial2.heartBeat.type == COMMAND_STOP)
+		// {
+		// 	// commandStatus = COMMAND_STATUS_;
+		// }
+		// else
+		// {
 
-		}
+		// }
 
-		heartbeat.type          = mavlinkSerial2.heartBeat.type;//MAV_TYPE_ONBOARD_TESTER;
-		heartbeat.autopilot     = mavlinkSerial2.heartBeat.autopilot;//MAV_AUTOPILOT_INVALID;
-		heartbeat.base_mode     = mavlinkSerial2.heartBeat.base_mode;//0;
-		heartbeat.custom_mode   = mavlinkSerial2.heartBeat.custom_mode;//0;
-		heartbeat.system_status = commandStatus;//MAV_STATE_ACTIVE;
+		// heartbeat.type          = mavlinkSerial2.heartBeat.type;//MAV_TYPE_ONBOARD_TESTER;
+		// heartbeat.autopilot     = mavlinkSerial2.heartBeat.autopilot;//MAV_AUTOPILOT_INVALID;
+		// heartbeat.base_mode     = mavlinkSerial2.heartBeat.base_mode;//0;
+		// heartbeat.custom_mode   = mavlinkSerial2.heartBeat.custom_mode;//0;
+		// heartbeat.system_status = commandStatus;//MAV_STATE_ACTIVE;
+
+		heartbeat.type          = MAV_TYPE_ONBOARD_TESTER;
+		heartbeat.autopilot     = MAV_AUTOPILOT_INVALID;
+		heartbeat.base_mode     = 0;
+		heartbeat.custom_mode   = 0;
+		heartbeat.system_status = MAV_STATE_ACTIVE;
 	}
 	else if(channel == MAVLINK_COMM_1)
 	{
-		heartbeat.type          = control.type;//MAV_TYPE_ONBOARD_TESTER;
-		heartbeat.autopilot     = control.autopilot;//MAV_AUTOPILOT_INVALID;
-		heartbeat.base_mode     = control.base_mode;//0;
-		heartbeat.custom_mode   = control.custom_mode;//0;
-		heartbeat.system_status = control.system_status;//MAV_STATE_ACTIVE;
+		// heartbeat.type          = control.type;//MAV_TYPE_ONBOARD_TESTER;
+		// heartbeat.autopilot     = control.autopilot;//MAV_AUTOPILOT_INVALID;
+		// heartbeat.base_mode     = control.base_mode;//0;
+		// heartbeat.custom_mode   = control.custom_mode;//0;
+		// heartbeat.system_status = control.system_status;//MAV_STATE_ACTIVE;
+
+		heartbeat.type          = MAV_TYPE_ONBOARD_TESTER;
+		heartbeat.autopilot     = MAV_AUTOPILOT_INVALID;
+		heartbeat.base_mode     = 0;
+		heartbeat.custom_mode   = 0;
+		heartbeat.system_status = MAV_STATE_ACTIVE;
 	}
 
 	/*
@@ -1113,15 +1125,19 @@ void mavlinkHandle_t::controlJig(void)
 		}break;
 		case CONTROL_JIG_STATE_DONE:
 		{
-			Serial.println("CONTROL_JIG_STATE_DONE");
-			delay(1000);
-			state = CONTROL_JIG_STATE_RESET;
+			#if (DEBUG_STATE == 1)
+				Serial.println("CONTROL_JIG_STATE_DONE");
+				delay(1000);
+				state = CONTROL_JIG_STATE_RESET;
+			#endif
 		}break;
 		case CONTROL_JIG_STATE_RESET:
 		{
-			Serial.println("CONTROL_JIG_STATE_RESET");
-			delay(1000);
-			state = CONTROL_JIG_STATE_IDLE;
+			#if (DEBUG_STATE == 1)
+				Serial.println("CONTROL_JIG_STATE_RESET");
+				delay(1000);
+				state = CONTROL_JIG_STATE_IDLE;
+			#endif
 		}break;
 		
 		default:
@@ -1140,7 +1156,7 @@ void mavlinkHandle_t::process( void *pvParameters )
 	sendData();
 	recieverData();
 
-	controlJig();
+	// controlJig();
 
 	// if(modeRC == false)
 	// {

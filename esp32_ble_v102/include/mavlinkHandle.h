@@ -31,6 +31,12 @@
 /* Exported define ------------------------------------------------------------*/
 #define JIG_ID	0x01
 #define DEBUG_STATE 0
+#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2				1
+#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1				0
+#define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2		0
+#define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL1		0
+#define DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL2				0
+#define DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL1				0
 /* Exported types ------------------------------------------------------------*/
 
 /**
@@ -306,32 +312,48 @@ class mavlinkHandle_t
 		            msg->heartBeat.flag_heartbeat = true;
 		            msg->heartBeat.vehicle_system_id = mavlink->rxmsg.sysid;
 
-		            char buff[300];
-
-					if(channel == MAVLINK_COMM_0)
-		            sprintf(buff, "[heartbeat Serial2] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
-		                ,heartbeat.autopilot
-		                ,heartbeat.base_mode
-		                ,heartbeat.custom_mode
-		                ,heartbeat.mavlink_version
-		                ,heartbeat.system_status
-		                ,heartbeat.type
-		            );
-
-					if(channel == MAVLINK_COMM_1)
-					sprintf(buff, "[heartbeat Serial1] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
-		                ,heartbeat.autopilot
-		                ,heartbeat.base_mode
-		                ,heartbeat.custom_mode
-		                ,heartbeat.mavlink_version
-		                ,heartbeat.system_status
-		                ,heartbeat.type
-		            );
-
 					uint8_t len = sizeof(mavlink_heartbeat_t);
 					memcpy(&msg->heartBeat, &heartbeat, len);
 
-		            Serial.println(buff);
+					#if(DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2 == 1)
+
+						char buffHeartbeatSr1[300];
+
+						if(channel == MAVLINK_COMM_0)
+						{
+							sprintf(buffHeartbeatSr1, "[heartbeat Serial2] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
+								,heartbeat.autopilot
+								,heartbeat.base_mode
+								,heartbeat.custom_mode
+								,heartbeat.mavlink_version
+								,heartbeat.system_status
+								,heartbeat.type
+							);
+
+							Serial.println(buffHeartbeatSr1);
+						}
+
+					#endif
+
+					#if(DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1 == 1)
+
+						char buffHeartbeatSr2[300];
+
+						if(channel == MAVLINK_COMM_1)
+						{
+							sprintf(buffHeartbeatSr2, "[heartbeat Serial1] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
+								,heartbeat.autopilot
+								,heartbeat.base_mode
+								,heartbeat.custom_mode
+								,heartbeat.mavlink_version
+								,heartbeat.system_status
+								,heartbeat.type
+							);
+
+							Serial.println(buffHeartbeatSr2);
+						}
+
+					#endif		            
 		        }break;
 		        case MAVLINK_MSG_ID_SYS_STATUS:
 		        {
@@ -429,6 +451,45 @@ class mavlinkHandle_t
 		            uint8_t len = sizeof(mavlink_mount_orientation_t);
 		            memcpy(&msg->mountOrientation, &mount_orientation, len);
 
+
+					#if(DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2 == 1)
+
+						char buffMountOrienSr2[100];
+
+						if(channel == MAVLINK_COMM_0)
+						{
+							sprintf(buffMountOrienSr2, "[mountOrientation Serial2] pitch : %f, roll : %f, yaw : %f, time_boot_ms : %7d, yaw_absolute : %f"
+								,msg->mountOrientation.pitch
+								,msg->mountOrientation.roll
+								,msg->mountOrientation.yaw
+								,msg->mountOrientation.time_boot_ms
+								,msg->mountOrientation.yaw_absolute
+							);
+
+							Serial.println(buffMountOrienSr2);
+						}
+						
+
+					#endif
+
+					#if(DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL1 == 1)
+
+						char buffMountOrienSr1[100];
+
+						if(channel == MAVLINK_COMM_1)
+						{
+							sprintf(buffMountOrienSr1, "[mountOrientation Serial1] pitch : %f, roll : %f, yaw : %f, time_boot_ms : %7d, yaw_absolute : %f"
+								,msg->mountOrientation.pitch
+								,msg->mountOrientation.roll
+								,msg->mountOrientation.yaw
+								,msg->mountOrientation.time_boot_ms
+								,msg->mountOrientation.yaw_absolute
+							);
+
+							Serial.println(buffMountOrienSr1);
+						}
+
+					#endif
 		        }break;
 		        case MAVLINK_MSG_ID_RAW_IMU:
 		        {
@@ -479,7 +540,15 @@ class mavlinkHandle_t
 					uint8_t len = sizeof(mavlink_param_value_t);
 					memcpy(&msg->paramValue, &param_value, len);
 
-					Serial.println("MAVLINK_MSG_ID_PARAM_VALUE : param_index : " + String(msg->paramValue.param_index) + " | param_value : " + String(msg->paramValue.param_value));
+					#if (DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL2 == 1)
+						if(channel == MAVLINK_COMM_0)
+						Serial.println("MAVLINK_MSG_ID_PARAM_VALUE : param_index : " + String(msg->paramValue.param_index) + " | param_value : " + String(msg->paramValue.param_value));
+					#endif
+
+					# if(DEBUG_MAVLINK_HANDLE_PARAMVALUE_SERIAL1 == 1)
+						if(channel == MAVLINK_COMM_1)
+						Serial.println("MAVLINK_MSG_ID_PARAM_VALUE : param_index : " + String(msg->paramValue.param_index) + " | param_value : " + String(msg->paramValue.param_value));
+					#endif
 				}break;
 
 		        default:
