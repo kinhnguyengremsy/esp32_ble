@@ -320,7 +320,7 @@ void PEGremsy_BLE::initialize(void)
 
     Serial.println("start advertising");
 
-    pinMode(2, OUTPUT);
+    pinMode(22, OUTPUT);
 
 }
 
@@ -387,7 +387,7 @@ void PEGremsy_BLE::process(void)
             timeSequence = millis();
 
             static bool state = false;
-            digitalWrite(2, state);
+            digitalWrite(22, state);
 
             state = !state;
 
