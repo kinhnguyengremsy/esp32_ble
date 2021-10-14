@@ -294,7 +294,7 @@ class mavlinkHandle_t
 		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
 		void sendheartbeat(mavlink_channel_t channel);
 		bool getGimbalReturnHome(void);
-		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC);
+		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
 
 };
 /* Exported constants --------------------------------------------------------*/

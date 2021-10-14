@@ -61,7 +61,7 @@
 #define MAVLINK_SERIAL2_RX_PIN       16
 #define MAVLINK_SERIAL2_TX_PIN       17
 
-#define MAVLINK_SERIAL1_BAUDRATE     115200
+#define MAVLINK_SERIAL1_BAUDRATE     9600
 #define MAVLINK_SERIAL1_DATA_SIZE    SERIAL_8N1
 #define MAVLINK_SERIAL1_RX_PIN       9
 #define MAVLINK_SERIAL1_TX_PIN       10
@@ -151,6 +151,15 @@ bool mavlinkProtocol::serial_readData(HardwareSerial *serial, mavlink_channel_t 
     {
         uint8_t c = serial->read();
 
+        // if(channel == MAVLINK_COMM_0)
+        // {
+        //     if(c == 0xfd)
+        //     Serial.println("");
+        //     Serial.print(c, HEX);
+        //     Serial.print(" | ");
+        // }
+
+
         if(mavlink_parse_char(channel, c, &mav->rxmsg, &mav->status))
         {
             ret = true;
@@ -171,8 +180,10 @@ bool mavlinkProtocol::swSerial_readData(mavlink_channel_t channel, mav_state_t *
     {
         uint8_t c = swSerial.read();
 
-        // Serial.println("swSerial :");
-        // Serial.println(c, HEX);
+        // if(c == 0xfd)
+        // Serial.println("");
+        // Serial.print(c, HEX);
+        // Serial.print(" | ");
 
         if(mavlink_parse_char(channel, c, &mav->rxmsg, &mav->status))
         {
@@ -214,7 +225,10 @@ void comm_send_buffer(mavlink_channel_t chan, const uint8_t *buf, uint8_t len)
             if(length == len)
             {
                 for(uint8_t i = 0; i < length; i++)
-                Serial.print(buf[i], HEX);
+                {
+                    Serial.print(buf[i], HEX);
+                    Serial.print(" | ");
+                }
 
                 Serial.println("");
                 Serial.println("[Serial 2 send mavlink packet] : " + String(len) + "byte");
@@ -238,22 +252,33 @@ void comm_send_buffer(mavlink_channel_t chan, const uint8_t *buf, uint8_t len)
 
                 if(length == len)
                 {
+                    Serial.println("");
+                    Serial.print("[Serial 1 send mavlink packet] : " + String(len) + "byte");
+
                     for(uint8_t i = 0; i < length; i++)
-                    Serial.print(buf[i], HEX);
+                    {
+                        Serial.print(buf[i], HEX);
+                        Serial.print(" | ");
+                    }
 
                     Serial.println("");
-                    Serial.println("[Serial 1 send mavlink packet] : " + String(len) + "byte");
+
                 }
             #else
                 uint8_t length = Serial1.write(buf, len);
 
                 if(length == len)
                 {
+                    Serial.println("");
+                    Serial.print("[Serial 1 send mavlink packet] : " + String(len) + "byte");
+
                     for(uint8_t i = 0; i < length; i++)
-                    Serial.print(buf[i], HEX);
+                    {
+                        Serial.print(buf[i], HEX);
+                        Serial.print(" | ");
+                    }
 
                     Serial.println("");
-                    Serial.println("[Serial 1 send mavlink packet] : " + String(len) + "byte");
                 }
             #endif
 

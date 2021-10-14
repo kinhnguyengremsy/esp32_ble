@@ -72,6 +72,9 @@ void mavlinkHandle_t::initialize(void)
 */#ifndef MAVLINK_MESSAGE_HANDLE
 #define MAVLINK_MESSAGE_HANDLE
 
+/** @brief mavlinkMessageHandle
+    @return none
+*/
 void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_state_t *mavlink)
 {
 	switch (mavlink->rxmsg.msgid)
@@ -328,6 +331,9 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 	}
 }
 
+/** @brief sendheartbeat
+    @return none
+*/
 void mavlinkHandle_t::sendheartbeat(mavlink_channel_t channel)
 {
 	mavlink_message_t       msg;
@@ -1331,7 +1337,7 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 /** @brief applyControlGimbalWithRC
     @return bool
 */
-bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC)
+bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink)
 {
 	bool ret = false;
 	static bool checkGimbalHome = false;
@@ -1352,7 +1358,22 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC)
 		{
 			if(checkRCintput == false)
 			{
-				/// ??????????????????????????????????????
+				if(RcOrMavlink == true)
+				{
+					mavlink_remoteControl(MAVLINK_COMM_0, REMOTE_CONTROL_MODE);
+
+					Serial.println("[applyControlGimbalWithRC] REMOTE_CONTROL_MODE");
+				}
+				else
+				{
+					mavlink_remoteControl(MAVLINK_COMM_0, MAVLINK_CONTROL_MODE);
+
+					Serial.println("[applyControlGimbalWithRC] MAVLINK_CONTROL_MODE");
+				}
+
+				delay(100);
+				
+				if(mavlinkSerial2.ackCommand.command == MAV_CMD_DO_MOUNT_CONFIGURE)
 				checkRCintput = true;
 			}
 			else
@@ -1460,10 +1481,11 @@ void mavlinkHandle_t::controlJig(void)
 
 					static bool applyControl = false;
 					static uint32_t timeSendModeRcControl = 0;
+					static uint8_t countMode = 0;
 
 					if(applyControl == false)
 					{
-						applyControl = applyControlGimbalWithRC(GIMBAL_RC_MODE_SBUS);
+						applyControl = applyControlGimbalWithRC(GIMBAL_RC_MODE_SBUS, true);
 					}
 					else
 					{
@@ -1473,14 +1495,45 @@ void mavlinkHandle_t::controlJig(void)
 
 							control.base_mode = CONTROL_JIG_MODE_SBUS;
 
-							Serial.println("[controlJig] send mode control : " + String(CONTROL_JIG_MODE_SBUS));
+							if(++countMode > 10)
+							{
+								Serial.println("[controlJig] timeOut ---> next mode: " + String(CONTROL_JIG_MODE_SBUS));
+
+								/// next mode 
+								Serial.println("CONTROL_JIG_MODE_PPM");
+								mode = CONTROL_JIG_MODE_PPM;
+
+								applyControl = false;
+								timeSendModeRcControl = 0;
+								countMode = 0;
+							}
+							else
+							{
+								if(mavlinkSerial2.heartBeat.base_mode == CONTROL_JIG_MODE_SBUS)
+								{
+									Serial.println("[controlJig] apply mode : " + String(CONTROL_JIG_MODE_SBUS));
+								}
+								else
+								{
+									Serial.println("[controlJig] send mode control : " + String(CONTROL_JIG_MODE_SBUS));
+								}
+
+								if(mavlinkSerial2.heartBeat.autopilot == 2)
+								{
+									Serial.println("[controlJig] test DONE ---> next mode: " + String(CONTROL_JIG_MODE_PPM));
+									/// next mode 
+									Serial.println("CONTROL_JIG_MODE_PPM");
+									mode = CONTROL_JIG_MODE_PPM;
+
+									applyControl = false;
+									timeSendModeRcControl = 0;
+									countMode = 0;
+								}
+							}
 						}
 						else
 						{
-							if(mavlinkSerial2.heartBeat.base_mode == CONTROL_JIG_MODE_SBUS)
-							{
-								Serial.println("[controlJig] apply mode : " + String(CONTROL_JIG_MODE_SBUS));
-							}
+							
 						}
 					}
 

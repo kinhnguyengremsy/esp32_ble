@@ -395,7 +395,7 @@ void PEGremsy_BLE::process(void)
 
             ConvertFloat2Hex(testFloat, hex_array);
 
-//          Serial.println("[hextoFloat] value : " + String(ConvertHex2ToFloat(hex_array)));
+            Serial.println("[hextoFloat] value : " + String(ConvertHex2ToFloat(hex_array)));
 
             votlta = random(90, 100);
             for(uint8_t i = 0; i < 10; i++) count[i]+=i;
