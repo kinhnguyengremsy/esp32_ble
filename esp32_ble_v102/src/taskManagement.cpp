@@ -68,9 +68,15 @@ void BLETask( void *pvParameters )
     /// task init
     ble.initialize();
 
+    mavlink.initialize();
+
+    Serial.println("start mavlink");
+
     for(;;)
     {
         ble.process();
+
+        mavlink.process(NULL);
     }
 }
 
@@ -84,21 +90,24 @@ void taskManagement_t::initialize(void)
     xTaskCreatePinnedToCore(
     BLETask
     ,  "BLETask"   // A name just for humans
-    ,  10 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  5 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
     ,  NULL
     ,  3  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
     ,  NULL 
     ,  ARDUINO_RUNNING_CORE); 
 
     
-    xTaskCreatePinnedToCore(
-    mavlinkTask
-    ,  "mavlinkTask"   // A name just for humans
-    ,  20 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
-    ,  NULL
-    ,  3  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
-    ,  NULL 
-    ,  ARDUINO_RUNNING_CORE); 
+    // xTaskCreatePinnedToCore(
+    // mavlinkTask
+    // ,  "mavlinkTask"   // A name just for humans
+    // ,  10 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    // ,  NULL
+    // ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    // ,  NULL 
+    // ,  ARDUINO_RUNNING_CORE); 
+
+    // xTaskCreate(&BLETask, "BLETask", 10 * 1024, NULL, 2, NULL);
+    // xTaskCreate(&mavlinkTask, "mavlinkTask", 10 * 1024, NULL, 1, NULL);
 }
 
 taskManagement_t::taskManagement_t(/* args */)

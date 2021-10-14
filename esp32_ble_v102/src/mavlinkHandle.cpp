@@ -87,8 +87,14 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 			msg->heartBeat.flag_heartbeat = true;
 			msg->heartBeat.vehicle_system_id = mavlink->rxmsg.sysid;
 
-			uint8_t len = sizeof(mavlink_heartbeat_t);
-			memcpy(&msg->heartBeat, &heartbeat, len);
+			// uint8_t len = sizeof(mavlink_heartbeat_t);
+			// memcpy(&msg->heartBeat, &heartbeat, len);
+			msg->heartBeat.autopilot 		= heartbeat.autopilot;
+			msg->heartBeat.base_mode 		= heartbeat.base_mode;
+			msg->heartBeat.custom_mode 		= heartbeat.custom_mode;
+			msg->heartBeat.mavlink_version 	= heartbeat.mavlink_version;
+			msg->heartBeat.system_status 	= heartbeat.system_status;
+			msg->heartBeat.type 			= heartbeat.type;
 
 			#if(DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2 == 1)
 
@@ -97,12 +103,12 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 				if(channel == MAVLINK_COMM_0)
 				{
 					sprintf(buffHeartbeatSr1, "[heartbeat Serial2] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
-						,heartbeat.autopilot
-						,heartbeat.base_mode
-						,heartbeat.custom_mode
-						,heartbeat.mavlink_version
-						,heartbeat.system_status
-						,heartbeat.type
+						,msg->heartBeat.autopilot
+						,msg->heartBeat.base_mode
+						,msg->heartBeat.custom_mode
+						,msg->heartBeat.mavlink_version
+						,msg->heartBeat.system_status
+						,msg->heartBeat.type
 					);
 
 					Serial.println(buffHeartbeatSr1);
@@ -117,12 +123,12 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 				if(channel == MAVLINK_COMM_1)
 				{
 					sprintf(buffHeartbeatSr2, "[heartbeat Serial1] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
-						,heartbeat.autopilot
-						,heartbeat.base_mode
-						,heartbeat.custom_mode
-						,heartbeat.mavlink_version
-						,heartbeat.system_status
-						,heartbeat.type
+						,msg->heartBeat.autopilot
+						,msg->heartBeat.base_mode
+						,msg->heartBeat.custom_mode
+						,msg->heartBeat.mavlink_version
+						,msg->heartBeat.system_status
+						,msg->heartBeat.type
 					);
 
 					Serial.println(buffHeartbeatSr2);
@@ -376,6 +382,8 @@ void mavlinkHandle_t::sendheartbeat(mavlink_channel_t channel)
 		heartbeat.base_mode     = control.base_mode;
 		heartbeat.custom_mode   = 0;
 		heartbeat.system_status = 0;
+
+		Serial.println("[sendHeartBeat to STM32] type : " + String(control.type) + " | base_mode : " + String(control.base_mode));
 
 		// heartbeat.type          = MAV_TYPE_ONBOARD_TESTER;
 		// heartbeat.autopilot     = MAV_AUTOPILOT_INVALID;
@@ -1343,6 +1351,7 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 	static bool checkGimbalHome = false;
 	static bool checkModeControl = false;
 	static bool checkRCintput = false;
+	static uint32_t timeWaittingAckCommand = 0;
 
 	if(checkGimbalHome == false)
 	{
@@ -1358,29 +1367,37 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 		{
 			if(checkRCintput == false)
 			{
-				if(RcOrMavlink == true)
+				if(millis() - timeWaittingAckCommand > 1000 || timeWaittingAckCommand == 0)
 				{
-					mavlink_remoteControl(MAVLINK_COMM_0, REMOTE_CONTROL_MODE);
+					timeWaittingAckCommand = millis();
 
-					Serial.println("[applyControlGimbalWithRC] REMOTE_CONTROL_MODE");
-				}
-				else
-				{
-					mavlink_remoteControl(MAVLINK_COMM_0, MAVLINK_CONTROL_MODE);
+					if(RcOrMavlink == true)
+					{
+						mavlink_remoteControl(MAVLINK_COMM_0, REMOTE_CONTROL_MODE);
 
-					Serial.println("[applyControlGimbalWithRC] MAVLINK_CONTROL_MODE");
-				}
+						Serial.println("[applyControlGimbalWithRC] REMOTE_CONTROL_MODE ... command : " + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.command));
+					}
+					else
+					{
+						mavlink_remoteControl(MAVLINK_COMM_0, MAVLINK_CONTROL_MODE);
 
-				delay(100);
-				
+						Serial.println("[applyControlGimbalWithRC] MAVLINK_CONTROL_MODE ... command : " + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.command));
+					}
+				}		
+
 				if(mavlinkSerial2.ackCommand.command == MAV_CMD_DO_MOUNT_CONFIGURE)
-				checkRCintput = true;
+				{
+					Serial.println("[applyControlGimbalWithRC] DONE");
+
+					checkRCintput = true;
+				}
 			}
 			else
 			{
 				checkGimbalHome = false;
 				checkModeControl = false;
 				checkRCintput = false;
+				timeWaittingAckCommand = 0;
 
 				ret = true;
 			}
@@ -1396,7 +1413,7 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 void mavlinkHandle_t::controlJig(void)
 {
 	static controlJigState_t 	state;
-	static controlJigMode_t	mode;
+	static controlJigMode_t	mode = CONTROL_JIG_MODE_SBUS;
 
 	switch (state)
 	{
@@ -1495,7 +1512,7 @@ void mavlinkHandle_t::controlJig(void)
 
 							control.base_mode = CONTROL_JIG_MODE_SBUS;
 
-							if(++countMode > 10)
+							if(++countMode > 15)
 							{
 								Serial.println("[controlJig] timeOut ---> next mode: " + String(CONTROL_JIG_MODE_SBUS));
 
@@ -1509,7 +1526,7 @@ void mavlinkHandle_t::controlJig(void)
 							}
 							else
 							{
-								if(mavlinkSerial2.heartBeat.base_mode == CONTROL_JIG_MODE_SBUS)
+								if(mavlinkSerial1.heartBeat.base_mode == CONTROL_JIG_MODE_SBUS)
 								{
 									Serial.println("[controlJig] apply mode : " + String(CONTROL_JIG_MODE_SBUS));
 								}
@@ -1518,7 +1535,7 @@ void mavlinkHandle_t::controlJig(void)
 									Serial.println("[controlJig] send mode control : " + String(CONTROL_JIG_MODE_SBUS));
 								}
 
-								if(mavlinkSerial2.heartBeat.autopilot == 2)
+								if(mavlinkSerial1.heartBeat.autopilot == 2)
 								{
 									Serial.println("[controlJig] test DONE ---> next mode: " + String(CONTROL_JIG_MODE_PPM));
 									/// next mode 
@@ -1643,7 +1660,7 @@ void mavlinkHandle_t::process( void *pvParameters )
 	sendData();
 	recieverData();
 
-	// controlJig();
+	
 	// controlGimbal(0, 0, 0, LOCK_MODE);
 
 
@@ -1651,17 +1668,13 @@ void mavlinkHandle_t::process( void *pvParameters )
 	{
 		offMotor = true;
 
-		mavlink_control_motor(MAVLINK_COMM_0, TURN_OFF);
+		// mavlink_control_motor(MAVLINK_COMM_0, TURN_OFF);
 
 		Serial.println("[gimbalStatus] motor : TURN OFF");
 	}
 	else
 	{
-		// if(modeRC == false)
-		// {
-		// 	// modeRC = requestGimbalModeRC(GIMBAL_RC_MODE_MAVLINK);
-		// 	modeRC = getGimbalReturnHome();
-		// }
+		controlJig();
 	}
 
 }
