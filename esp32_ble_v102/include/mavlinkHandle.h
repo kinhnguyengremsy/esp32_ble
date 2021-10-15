@@ -156,6 +156,7 @@ typedef enum _commandStartStop_t
 	COMMAND_START = 1,
 	COMMAND_STOP,
 	COMMAND_RESET,
+	COMMAND_WGRH,
 
 }commandStartStop_t;
 
@@ -298,7 +299,7 @@ class mavlinkHandle_t
 		void sendheartbeat(mavlink_channel_t channel);
 		bool getGimbalReturnHome(void);
 		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
-		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t *modeInput, controlJigMode_t modeOutput);
+		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t modeInput, controlJigMode_t modeOutput);
 
 };
 /* Exported constants --------------------------------------------------------*/
