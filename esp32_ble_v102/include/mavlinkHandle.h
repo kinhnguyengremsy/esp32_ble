@@ -144,6 +144,7 @@ typedef enum _controlJigMode_t
 	CONTROL_JIG_MODE_COM4,
 	CONTROL_JIG_MODE_AUX,
 	CONTROL_JIG_MODE_VIRATE,
+	CONTROL_JIG_MODE_DONE,
 }controlJigMode_t;
 
 /**
@@ -154,6 +155,8 @@ typedef enum _commandStartStop_t
 {
 	COMMAND_START = 1,
 	COMMAND_STOP,
+	COMMAND_RESET,
+
 }commandStartStop_t;
 
 /**
@@ -295,6 +298,7 @@ class mavlinkHandle_t
 		void sendheartbeat(mavlink_channel_t channel);
 		bool getGimbalReturnHome(void);
 		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
+		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t *modeInput, controlJigMode_t modeOutput);
 
 };
 /* Exported constants --------------------------------------------------------*/

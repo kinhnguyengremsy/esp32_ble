@@ -61,7 +61,7 @@
 #define MAVLINK_SERIAL2_RX_PIN       16
 #define MAVLINK_SERIAL2_TX_PIN       17
 
-#define MAVLINK_SERIAL1_BAUDRATE     9600
+#define MAVLINK_SERIAL1_BAUDRATE     1200
 #define MAVLINK_SERIAL1_DATA_SIZE    SERIAL_8N1
 #define MAVLINK_SERIAL1_RX_PIN       9
 #define MAVLINK_SERIAL1_TX_PIN       10
@@ -103,7 +103,7 @@ void mavlinkProtocol::initialize(void)
 
     #if (USE_SOFTWARE_SERIAL == 1)
 
-        swSerial.begin(9600, SWSERIAL_8N1, 18, 19, false, 256);
+        swSerial.begin(1200, SWSERIAL_8N1, 18, 19, false, 256);
 
         Serial.println("[mavlinkProtocol] swSerial Txd is on pin: "+String(19));
         Serial.println("[mavlinkProtocol] swSerial Rxd is on pin: "+String(18));

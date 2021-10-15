@@ -1303,7 +1303,8 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 			mavlink_set_gimbal_home(MAVLINK_COMM_0);
 		}
 
-		Serial.println("[getGimbalReturnHome] set gimbal return home running ....... | " + String(mavlinkSerial2.mountOrientation.yaw) 
+		Serial.println("[getGimbalReturnHome] set gimbal return home running ....... | " 
+		+ String(mavlinkSerial2.mountOrientation.yaw) 
 		+ " | " + String(mavlinkSerial2.mountOrientation.roll) 
 		+ " | " + String(mavlinkSerial2.mountOrientation.pitch) 
 		+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) 
@@ -1318,22 +1319,47 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 			uint16_t deltaRoll = abs((int16_t)mavlinkSerial2.mountOrientation.roll - homeSetPoint);
 			uint16_t deltaTilt = abs((int16_t)mavlinkSerial2.mountOrientation.pitch - homeSetPoint);
 
-			/// kiem tra goc gimbal
-			if(mavlinkSerial2.mountOrientation.yaw != 0.00 && mavlinkSerial2.mountOrientation.roll != 0.00 && mavlinkSerial2.mountOrientation.pitch != 0.00)
+			/// kiem tra gimbal axis
+			if(findGimbalAxis(mavlinkSerial2.heartBeat.vehicle_system_id) == true)
 			{
-				/// kiem tra tinh toan  goc gimbal
-				if(deltaPan < 5 && deltaRoll < 5 && deltaTilt < 5)
+				/// kiem tra goc gimbal
+				if(mavlinkSerial2.mountOrientation.roll != 0.00 && mavlinkSerial2.mountOrientation.pitch != 0.00)
 				{
-					timeSetGimbalReturnHome = 0;
-					clearAckCommand = false;
+					/// kiem tra tinh toan  goc gimbal
+					if(deltaPan < 5 && deltaRoll < 5 && deltaTilt < 5)
+					{
+						timeSetGimbalReturnHome = 0;
+						clearAckCommand = false;
 
-					uint8_t len = sizeof(mavlink_command_ack_t);
-					memset(&mavlinkSerial2.ackCommand, 0, len);
+						uint8_t len = sizeof(mavlink_command_ack_t);
+						memset(&mavlinkSerial2.ackCommand, 0, len);
 
-					Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaPan) + " | " + String(deltaRoll) + " | " + String(deltaTilt)
-					+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
-					
-					ret = true;
+						Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaRoll) + " | " + String(deltaTilt)
+						+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
+						
+						ret = true;
+					}
+				}
+			}
+			else
+			{
+				/// kiem tra goc gimbal
+				if(mavlinkSerial2.mountOrientation.yaw != 0.00 && mavlinkSerial2.mountOrientation.roll != 0.00 && mavlinkSerial2.mountOrientation.pitch != 0.00)
+				{
+					/// kiem tra tinh toan  goc gimbal
+					if(deltaPan < 5 && deltaRoll < 5 && deltaTilt < 5)
+					{
+						timeSetGimbalReturnHome = 0;
+						clearAckCommand = false;
+
+						uint8_t len = sizeof(mavlink_command_ack_t);
+						memset(&mavlinkSerial2.ackCommand, 0, len);
+
+						Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaPan) + " | " + String(deltaRoll) + " | " + String(deltaTilt)
+						+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
+						
+						ret = true;
+					}
 				}
 			}			
 		}
@@ -1407,13 +1433,79 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 
 	return ret;
 }
+
+/** @brief applyControlJig
+    @return none
+*/
+bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t *modeInput, controlJigMode_t modeOutput)
+{
+	bool ret = false;
+
+		static bool applyControl = false;
+		static uint32_t timeSendModeRcControl = 0;
+		static uint8_t countMode = 0;
+
+		if(applyControl == false)
+		{
+			applyControl = applyControlGimbalWithRC(modeControl, true);
+		}
+		else
+		{
+			if(millis() - timeSendModeRcControl > 1000 || timeSendModeRcControl == 0)
+			{
+				timeSendModeRcControl = millis();
+
+				control.base_mode = *modeInput;
+
+				if(++countMode > 15)
+				{
+					Serial.println("[controlJig] timeOut ---> next mode: " + String(modeControl));
+					
+					applyControl = false;
+					timeSendModeRcControl = 0;
+					countMode = 0;
+
+					ret = true;
+				}
+				else
+				{
+					if(mavlinkSerial1.heartBeat.base_mode == *modeInput)
+					{
+						Serial.println("[controlJig] apply mode : " + String(*modeInput));
+					}
+					else
+					{
+						Serial.println("[controlJig] send mode control : " + String(*modeInput));
+					}
+
+					if(mavlinkSerial1.heartBeat.autopilot == 2)
+					{
+						Serial.println("[controlJig] test DONE ---> next mode: " + String(modeOutput));
+
+						applyControl = false;
+						timeSendModeRcControl = 0;
+						countMode = 0;
+
+						ret = true;
+					}
+				}
+			}
+			else
+			{
+				
+			}
+		}
+
+	return ret;
+}
+
 /** @brief controlJig
     @return none
 */
 void mavlinkHandle_t::controlJig(void)
 {
 	static controlJigState_t 	state;
-	static controlJigMode_t	mode = CONTROL_JIG_MODE_SBUS;
+	static controlJigMode_t	mode ;
 
 	switch (state)
 	{
@@ -1427,20 +1519,56 @@ void mavlinkHandle_t::controlJig(void)
 
 			#else 
 				static uint32_t timeWaitCommandStatus = 0;
+				static uint32_t timeWattingJigReset = 0;
+				static uint8_t resetJigCount = 0;
+				static bool flagJigReset = false;
 
-				/// kiem tra trang thai jig
-				if(mavlinkSerial1.heartBeat.system_status == COMMAND_STATUS_STANDBY)
+				mode = CONTROL_JIG_MODE_SBUS;
+
+				if(timeWattingJigReset == 0)
 				{
-					state = CONTROL_JIG_STATE_START;
-					Serial.println("CONTROL_JIG_STATE_START");
+					control.type = COMMAND_RESET;
 				}
-				else
-				{
-					if(millis() - timeWaitCommandStatus > 1000 || timeWaitCommandStatus == 0)
-					{
-						timeWaitCommandStatus = millis();
 
-						Serial.println("[controlJig] Waitting feed back command status from STM32 ...");
+				if(millis() - timeWattingJigReset > 1000 && flagJigReset == false)
+				{
+					timeWattingJigReset = millis();
+
+					flagJigReset = true;
+				}
+
+				if(flagJigReset == true)
+				{
+					/// kiem tra trang thai jig
+					if(mavlinkSerial1.heartBeat.system_status == COMMAND_STATUS_STANDBY)
+					{
+						state = CONTROL_JIG_STATE_START;
+						Serial.println("CONTROL_JIG_STATE_START");
+
+						control.type = 0;
+						flagJigReset = 0;
+						resetJigCount = 0;
+						timeWattingJigReset = 0;
+						timeWaitCommandStatus = 0;
+					}
+					else
+					{
+						if(millis() - timeWaitCommandStatus > 1000 || timeWaitCommandStatus == 0)
+						{
+							timeWaitCommandStatus = millis();
+
+							if(++resetJigCount > 5)
+							{
+								resetJigCount = 0;
+								control.type = COMMAND_RESET;
+							}
+							else if(resetJigCount == 3)
+							{
+								control.type = 0;
+							}
+
+							Serial.println("[controlJig] Waitting feed back command status from STM32 ... count : " + String(resetJigCount));
+						}
 					}
 				}
 
@@ -1496,63 +1624,13 @@ void mavlinkHandle_t::controlJig(void)
 
 					#else 
 
-					static bool applyControl = false;
-					static uint32_t timeSendModeRcControl = 0;
-					static uint8_t countMode = 0;
-
-					if(applyControl == false)
-					{
-						applyControl = applyControlGimbalWithRC(GIMBAL_RC_MODE_SBUS, true);
-					}
-					else
-					{
-						if(millis() - timeSendModeRcControl > 1000 || timeSendModeRcControl == 0)
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_SBUS;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_SBUS, &modeInput, CONTROL_JIG_MODE_PPM) == true)
 						{
-							timeSendModeRcControl = millis();
-
-							control.base_mode = CONTROL_JIG_MODE_SBUS;
-
-							if(++countMode > 15)
-							{
-								Serial.println("[controlJig] timeOut ---> next mode: " + String(CONTROL_JIG_MODE_SBUS));
-
-								/// next mode 
-								Serial.println("CONTROL_JIG_MODE_PPM");
-								mode = CONTROL_JIG_MODE_PPM;
-
-								applyControl = false;
-								timeSendModeRcControl = 0;
-								countMode = 0;
-							}
-							else
-							{
-								if(mavlinkSerial1.heartBeat.base_mode == CONTROL_JIG_MODE_SBUS)
-								{
-									Serial.println("[controlJig] apply mode : " + String(CONTROL_JIG_MODE_SBUS));
-								}
-								else
-								{
-									Serial.println("[controlJig] send mode control : " + String(CONTROL_JIG_MODE_SBUS));
-								}
-
-								if(mavlinkSerial1.heartBeat.autopilot == 2)
-								{
-									Serial.println("[controlJig] test DONE ---> next mode: " + String(CONTROL_JIG_MODE_PPM));
-									/// next mode 
-									Serial.println("CONTROL_JIG_MODE_PPM");
-									mode = CONTROL_JIG_MODE_PPM;
-
-									applyControl = false;
-									timeSendModeRcControl = 0;
-									countMode = 0;
-								}
-							}
+							mode = CONTROL_JIG_MODE_PPM;
+							control.base_mode = CONTROL_JIG_MODE_PPM;
 						}
-						else
-						{
-							
-						}
-					}
 
 					#endif
 				}break;
@@ -1565,6 +1643,15 @@ void mavlinkHandle_t::controlJig(void)
 						mode = CONTROL_JIG_MODE_CAN;
 
 					#else 
+
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_PPM;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_PPM, &modeInput, CONTROL_JIG_MODE_CAN) == true)
+						{
+							mode = CONTROL_JIG_MODE_CAN;
+							control.base_mode = CONTROL_JIG_MODE_CAN;
+						}
+
 					#endif
 				}break;
 				case CONTROL_JIG_MODE_CAN:
@@ -1576,6 +1663,15 @@ void mavlinkHandle_t::controlJig(void)
 						mode = CONTROL_JIG_MODE_COM2;
 
 					#else 
+
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_CAN;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_CAN, &modeInput, CONTROL_JIG_MODE_COM2) == true)
+						{
+							mode = CONTROL_JIG_MODE_COM2;
+							control.base_mode = CONTROL_JIG_MODE_COM2;
+						}
+					
 					#endif
 				}break;
 				case CONTROL_JIG_MODE_COM2:
@@ -1587,6 +1683,15 @@ void mavlinkHandle_t::controlJig(void)
 						mode = CONTROL_JIG_MODE_COM4;
 
 					#else 
+
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_COM2;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_MAVLINK, &modeInput, CONTROL_JIG_MODE_COM4) == true)
+						{
+							mode = CONTROL_JIG_MODE_COM4;
+							control.base_mode = CONTROL_JIG_MODE_COM4;
+						}
+
 					#endif
 				}break;
 				case CONTROL_JIG_MODE_COM4:
@@ -1598,6 +1703,15 @@ void mavlinkHandle_t::controlJig(void)
 						mode = CONTROL_JIG_MODE_AUX;
 
 					#else 
+
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_COM4;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_MAVLINK, &modeInput, CONTROL_JIG_MODE_AUX) == true)
+						{
+							mode = CONTROL_JIG_MODE_AUX;
+							control.base_mode = CONTROL_JIG_MODE_AUX;
+						}
+
 					#endif
 				}break;
 				case CONTROL_JIG_MODE_AUX:
@@ -1609,6 +1723,15 @@ void mavlinkHandle_t::controlJig(void)
 						mode = CONTROL_JIG_MODE_VIRATE;
 
 					#else 
+
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_AUX;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_MAVLINK, &modeInput, CONTROL_JIG_MODE_VIRATE) == true)
+						{
+							mode = CONTROL_JIG_MODE_VIRATE;
+							control.base_mode = CONTROL_JIG_MODE_VIRATE;
+						}
+
 					#endif
 				}break;
 				case CONTROL_JIG_MODE_VIRATE:
@@ -1620,6 +1743,15 @@ void mavlinkHandle_t::controlJig(void)
 						state = CONTROL_JIG_STATE_DONE;
 
 					#else 
+
+						controlJigMode_t modeInput = CONTROL_JIG_MODE_VIRATE;
+						
+						if(applyControlJig(GIMBAL_RC_MODE_MAVLINK, &modeInput, CONTROL_JIG_MODE_DONE) == true)
+						{
+							mode = CONTROL_JIG_MODE_DONE;
+							control.base_mode = CONTROL_JIG_MODE_DONE;
+						}
+
 					#endif
 				}break;
 				

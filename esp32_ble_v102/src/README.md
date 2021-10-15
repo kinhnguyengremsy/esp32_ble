@@ -21,7 +21,7 @@
 # ESP32
 
 - send :
-	+ type : 1 : START | 2 STOP
+	+ type : 1 : START | 2 STOP | 3 : RESET_JIG
 	+ base_mode : modeRC_control (1 : SBUS, 2 : PPM, 3 : CAN, 4 : COM2, 5 : COM4, 6 : AUX, 7 : VIRATE, ...)
 - reciever
 	+ system_status : 1 : STANBY | 2 : RUNNING | 3 : DONE | 4 : SYS_RESET
