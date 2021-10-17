@@ -25,15 +25,32 @@
 #define __TASKMANAGEMENT_H
 
 /* Includes ------------------------------------------------------------------*/
-
+#include "stdint.h"
 /* Exported define ------------------------------------------------------------*/
 
 /* Exported types ------------------------------------------------------------*/
+
+/*
+  BLE Jig characristic reciever
+*/
+typedef enum
+{
+  BLE_CONTROL_JIG_STATUS_IDLE,
+  BLE_CONTROL_JIG_STATUS_START,
+  BLE_CONTROL_JIG_STATUS_STOP,
+
+}BLE_controlJigStatus_t;
+
 class taskManagement_t
 {
   private:
     /* data */
   public:
+
+    uint8_t BLE_characteristisJigBuffer[2];
+
+    BLE_controlJigStatus_t getJigStatus(void);
+
     taskManagement_t(/* args */);
     ~taskManagement_t();
 

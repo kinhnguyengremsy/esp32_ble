@@ -124,6 +124,7 @@ typedef enum _modeRC_control_gimbal_t
 typedef enum _controlJigState_t
 {
 	CONTROL_JIG_STATE_IDLE = 0,
+	CONTROL_JIG_STATE_SETTING_PARAM_GIMBAL,
 	CONTROL_JIG_STATE_START,
 	CONTROL_JIG_STATE_RUNNING,
 	CONTROL_JIG_STATE_DONE,
@@ -137,7 +138,8 @@ typedef enum _controlJigState_t
  */
 typedef enum _controlJigMode_t
 {
-	CONTROL_JIG_MODE_SBUS = 1,
+	CONTROL_JIG_MODE_IDLE = 0,
+	CONTROL_JIG_MODE_SBUS,
 	CONTROL_JIG_MODE_PPM,
 	CONTROL_JIG_MODE_CAN,
 	CONTROL_JIG_MODE_COM2,
@@ -273,12 +275,15 @@ class mavlinkHandle_t
 
 		mavlink_msg_heartbeat_t control;
 
+		controlJigState_t 	state;
+		controlJigMode_t	mode ;
+
 		void initialize(void);
 		void sendData(void);
 		void recieverData(void);
 		void process( void *pvParameters );
 		
-		void controlGimbal(int16_t tilt, int16_t roll, int16_t pan, control_gimbal_mode_t mode);
+		void controlGimbal(int16_t tilt, int16_t roll, int16_t pan, control_gimbal_mode_t mode, bool controlLoop);
 		bool settingParamGimbal(void);
 		void controlJig(void);
 
@@ -295,8 +300,10 @@ class mavlinkHandle_t
 		void mavlink_param_request_read(mavlink_channel_t channel, int16_t param_index, char* param_id);
 		bool requestParamGimbal(void);
 		void mavlink_remoteControl(mavlink_channel_t channel, remote_control_gimbal_t command);
+		void mavlink_set_gimbal_reboot(mavlink_channel_t channel);
 		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
 		void sendheartbeat(mavlink_channel_t channel);
+		bool getHeartBeatReady(bool* flagHeartBeat, mavlink_channel_t channel);
 		bool getGimbalReturnHome(void);
 		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
 		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t modeInput, controlJigMode_t modeOutput);

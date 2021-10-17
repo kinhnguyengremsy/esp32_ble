@@ -45,6 +45,7 @@
 #include "sdkconfig.h"
 #include "myMath.h"
 #include "mavlinkHandle.h"
+#include "taskManagement.h"
 /* Exported define ------------------------------------------------------------*/
 
 /* Exported types ------------------------------------------------------------*/
@@ -211,6 +212,12 @@ class PEGremsy_BLE
 
 			pCharacteristicsRawImu->setValue((uint8_t *)value, 19);
 			pCharacteristicsRawImu->notify(Notify);
+		}
+
+		void send_jigStatus(uint8_t* buff)
+		{
+			pCharacteristicsJIGTEST->setValue(buff, 5);
+			pCharacteristicsJIGTEST->notify(true);
 		}
 };
 /* Exported constants --------------------------------------------------------*/
