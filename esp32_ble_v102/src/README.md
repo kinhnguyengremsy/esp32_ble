@@ -12,7 +12,7 @@
 - send :
 	+ system_status : 1 : STANBY | 2 : RUNNING | 3 : DONE | 4 : SYS_RESET
 	+ custom_mode : result test (0x00 - 0b00000000) pass : 1 | fail : 0
-	+ autopilot : 1 : RUN_MODE | 2 : DONE
+	+ autopilot : 1 : CONTROL_RUNNING | 2 : CONTROL_DONE | 3 : CONTROL_ERROR
 - reciever :
 	+ type : 1 : START | 2 STOP | 3 : RESET_JIG | 4 : WAITTING GIMBAL RETURN HOME
 	+ 
@@ -27,4 +27,4 @@
 - reciever
 	+ system_status : 1 : STANBY | 2 : RUNNING | 3 : DONE | 4 : SYS_RESET
 	+ custom_mode : result test (0x00 - 0b00000000) pass : 1 | fail : 0
-	+ autopilot : 1 : RUN_MODE | 2 : DONE
+	+ autopilot : 1 : 1 : CONTROL_RUNNING | 2 : CONTROL_DONE | 3 : CONTROL_ERROR

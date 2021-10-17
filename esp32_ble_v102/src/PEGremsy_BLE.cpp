@@ -1,7 +1,6 @@
 #include "Arduino.h"
 #include "PEGremsy_BLE.h"
 
-
 /*
  * Battery Service
  * */
@@ -82,10 +81,9 @@ VERSION_DEVICE
 };
 
 bool isConnect;
-uint8_t bufferRecieverHeartBeat[10];
-uint8_t bufferRecieverParamValue[26];
 
 extern mavlinkHandle_t mavlink;
+extern taskManagement_t management;
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -158,13 +156,20 @@ class writeCallbacks: public BLECharacteristicCallbacks
       {
         Serial.println("*********");
         Serial.print("New value: ");
-        for (int i = 0; i < value.length(); i++)
-        {
-          Serial.print(value[i]);
 
-          PEGremsy_BLE_getRecieverBuffer(value.length(), 10, bufferRecieverHeartBeat, value, i);
-          PEGremsy_BLE_getRecieverBuffer(value.length(), 26, bufferRecieverParamValue, value, i);
+        BLEUUID jigCharUuId = BLEUUID(BLE_UUID_JIGTEST_CHAR);
+        BLEUUID UuIdGet = pCharacteristic->getUUID();
+
+        if(UuIdGet.equals(jigCharUuId) == true)
+        {
+            for (int i = 0; i < value.length(); i++)
+            {
+                PEGremsy_BLE_getRecieverBuffer(value.length(), 2, management.BLE_characteristisJigBuffer, value, i);
+                
+                Serial.print(management.BLE_characteristisJigBuffer[i], HEX);
+            }
         }
+
         Serial.println();
         Serial.println("*********");
       }
@@ -339,27 +344,27 @@ bool PEGremsy_BLE::heartBeatHandle(void)
 {
     bool ret = false;
 
-    heartBeat.flag_heartbeat = bufferRecieverHeartBeat[9];
+//     heartBeat.flag_heartbeat = bufferRecieverHeartBeat[9];
 
-    if(heartBeat.flag_heartbeat == true)
-    {
-        heartBeat.custom_mode       = bufferRecieverHeartBeat[3] << 24 | bufferRecieverHeartBeat[2] << 16 | bufferRecieverHeartBeat[1] << 8 | bufferRecieverHeartBeat[0];
-        heartBeat.type              = bufferRecieverHeartBeat[4];
-        heartBeat.autopilot         = bufferRecieverHeartBeat[5];
-        heartBeat.base_mode         = bufferRecieverHeartBeat[6];
-        heartBeat.system_status     = bufferRecieverHeartBeat[7];
-        heartBeat.mavlink_version   = bufferRecieverHeartBeat[8];
+//     if(heartBeat.flag_heartbeat == true)
+//     {
+//         heartBeat.custom_mode       = bufferRecieverHeartBeat[3] << 24 | bufferRecieverHeartBeat[2] << 16 | bufferRecieverHeartBeat[1] << 8 | bufferRecieverHeartBeat[0];
+//         heartBeat.type              = bufferRecieverHeartBeat[4];
+//         heartBeat.autopilot         = bufferRecieverHeartBeat[5];
+//         heartBeat.base_mode         = bufferRecieverHeartBeat[6];
+//         heartBeat.system_status     = bufferRecieverHeartBeat[7];
+//         heartBeat.mavlink_version   = bufferRecieverHeartBeat[8];
 
-//      memset(bufferRecieverHeartBeat, 0, 10);
-        heartBeat.flag_heartbeat = false;
+// //      memset(bufferRecieverHeartBeat, 0, 10);
+//         heartBeat.flag_heartbeat = false;
 
-        char buff[300];
-        sprintf(buff, "custom_mode : %10d | type : %3d | autopilot : %3d | base_mode : %3d | system_status : %3d | mavlink_version : %3d"
-                , heartBeat.custom_mode, heartBeat.type, heartBeat.autopilot, heartBeat.base_mode, heartBeat.system_status, heartBeat.mavlink_version );
-        Serial.println("[recieverServiceHearBeat] : " + String(buff));
+//         char buff[300];
+//         sprintf(buff, "custom_mode : %10d | type : %3d | autopilot : %3d | base_mode : %3d | system_status : %3d | mavlink_version : %3d"
+//                 , heartBeat.custom_mode, heartBeat.type, heartBeat.autopilot, heartBeat.base_mode, heartBeat.system_status, heartBeat.mavlink_version );
+//         Serial.println("[recieverServiceHearBeat] : " + String(buff));
 
-        ret = true;
-    }
+//         ret = true;
+//     }
 
     return ret;
 }
@@ -404,11 +409,20 @@ void PEGremsy_BLE::process(void)
             pCharacterBatteryLevel->setValue(&votlta, 1);
             pCharacterBatteryLevel->notify(true);
 
+            uint8_t status[2] = {0};
+            uint8_t result[2] = {0};
+            uint8_t buffStatus[5] = {0};
 
-//          Serial.println("[testFloat] value : " + String(testFloat));
-//          pCharacteristicsJIGTEST->setValue(hex_array, 4);
-            pCharacteristicsJIGTEST->setValue(testFloat);
-            pCharacteristicsJIGTEST->notify(true);
+            memcpy(status, management.BLE_characteristisJigBuffer, 2);
+            result[0] = mavlink.mavlinkSerial1.heartBeat.custom_mode << 8;
+            result[1] = mavlink.mavlinkSerial1.heartBeat.custom_mode;
+
+            memcpy(buffStatus, status, 2);
+            memcpy(buffStatus + 2, &mavlink.mavlinkSerial1.heartBeat.base_mode, 1);
+            memcpy(buffStatus + 3, result, 2);
+
+            /// send to app jig status
+            send_jigStatus(buffStatus);
 
             mavlink_msg_heartbeat_t heartbeat;
             heartbeat. custom_mode      = test++;
@@ -454,6 +468,14 @@ void PEGremsy_BLE::process(void)
 
         }
     }
+
+	/// get jig status from app
+	BLE_controlJigStatus_t jigStatus = management.getJigStatus();
+
+	if(jigStatus == BLE_CONTROL_JIG_STATUS_STOP)
+	{
+
+	}
 }
 
 #endif

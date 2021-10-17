@@ -33,10 +33,39 @@
 #endif
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
+taskManagement_t management;
 PEGremsy_BLE ble; 
 mavlinkHandle_t mavlink;
 /* Private function prototypes------------------------------------------------------------------------------*/
 /* Private functions------------------------------------------------------------------------------*/
+
+/** @group TASK_MANAGEMENT_BLE_FUNCTION
+    @{
+*/#ifndef TASK_MANAGEMENT_BLE_FUNCTION
+#define TASK_MANAGEMENT_BLE_FUNCTION
+/** @brief  process
+    @return none
+*/
+BLE_controlJigStatus_t taskManagement_t::getJigStatus(void)
+{
+    BLE_controlJigStatus_t jigStatus = BLE_CONTROL_JIG_STATUS_IDLE;
+
+    if(BLE_characteristisJigBuffer[0] == 0x01)
+    {
+        jigStatus = BLE_CONTROL_JIG_STATUS_START;
+    }
+    else if(BLE_characteristisJigBuffer[0] == 0x02)
+    {
+        jigStatus = BLE_CONTROL_JIG_STATUS_STOP;
+    }
+
+    return jigStatus;
+}
+
+#endif
+/**
+    @}
+*/
 
 /** @group TASK_MANAGEMENT_INIT
     @{
