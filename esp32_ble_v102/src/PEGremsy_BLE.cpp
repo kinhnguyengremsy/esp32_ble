@@ -1,5 +1,8 @@
 #include "Arduino.h"
 #include "PEGremsy_BLE.h"
+#include "esp_bt_main.h"
+#include "esp_bt_device.h"
+#include <EEPROM.h>
 
 /*
  * Battery Service
@@ -59,6 +62,8 @@
 #define TYPE_DEVICE      0x02
 #define VERSION_DEVICE   0x02
 
+#define FLASH_MEMORY_SIZE 10
+
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
 static const char *TAG = "BLE";
@@ -81,6 +86,8 @@ VERSION_DEVICE
 };
 
 bool isConnect;
+
+size_t BLE_address[2];
 
 extern mavlinkHandle_t mavlink;
 extern taskManagement_t management;
@@ -192,15 +199,81 @@ PEGremsy_BLE::~PEGremsy_BLE(void)
 
 }
 
+void printDeviceAddress() 
+{
+ 
+  const uint8_t* point = esp_bt_dev_get_address();
+ 
+  for (int i = 0; i < 6; i++) 
+  {
+    char str[3];
+
+    if(i == 4)
+    {
+        BLE_address[0] = point[4];
+    }
+
+    if(i == 5)
+    {
+        BLE_address[1] = point[5];
+    }
+ 
+    sprintf(str, "%02X", (int)point[i]);
+    Serial.print(str);
+ 
+    if (i < 5)
+    {
+      Serial.print(":");
+    }
+  }
+
+  Serial.println("[BLE_address] = " + String(BLE_address[0]) + String(BLE_address[1]));
+
+    EEPROM.write(0, BLE_address[0]);
+    EEPROM.write(1, BLE_address[1]);
+    EEPROM.commit();
+}
+
 /** @brief  initialize
     @return none
 */
 void PEGremsy_BLE::initialize(void)
 {
+    
+
+    String BLE_name = "PEGremsy_BLE ";
+
     ESP_LOGI(TAG," Init BLE");
 
-    /// init BLE
-    BLEDevice::init("PEGremsy_BLE !");
+    EEPROM.begin(FLASH_MEMORY_SIZE);
+
+    /// read ble address from eeprom
+    BLE_address[0] = EEPROM.read(0);
+    BLE_address[1] = EEPROM.read(1);
+
+    if(BLE_address[0] != 255 && BLE_address[1] != 255)
+    {
+
+        Serial.println("[BLE_address] = " + String(BLE_address[0]) + String(BLE_address[1]));
+
+        String temp = BLE_name + String(DecToHex(BLE_address[0])) + String(DecToHex(BLE_address[1]));
+
+        Serial.println("[BLE_name] = " + String(DecToHex(BLE_address[0])) + String(DecToHex(BLE_address[1])) + " | " + temp);
+
+        /// init BLE
+        BLEDevice::init(temp.c_str());
+    }
+    else
+    {
+        /// init BLE
+        BLEDevice::init(BLE_name.c_str());
+
+        printDeviceAddress();
+
+        delay(1000);
+
+        ESP.restart();
+    }
 
     /// set power
     BLEDevice::setPower(ESP_PWR_LVL_P9, ESP_BLE_PWR_TYPE_ADV);
@@ -323,6 +396,7 @@ void PEGremsy_BLE::initialize(void)
 
     BLEDevice::startAdvertising();
 
+    Serial.println("");
     Serial.println("start advertising");
 
     pinMode(22, OUTPUT);

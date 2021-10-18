@@ -86,6 +86,15 @@ char ConvertInt2Char(char c)
 	return (char)(c + '0');
 }
 
+char* DecToHex(int p_intValue)
+{
+    char *l_pCharRes = new (char);
+    sprintf(l_pCharRes, "%X", p_intValue);
+    // Serial.println(l_pCharRes);
+
+    return l_pCharRes;
+}
+
 #endif
 /**
     @}

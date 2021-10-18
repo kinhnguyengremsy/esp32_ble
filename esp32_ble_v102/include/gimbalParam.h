@@ -43,9 +43,9 @@
 #define GIMBAL_PARAM_TEST_NPOLES_ROLL             40
 #define GIMBAL_PARAM_TEST_NPOLES_PITCH            40
 
-#define GIMBAL_PARAM_TEST_YAW_P_PIXY              25
-#define GIMBAL_PARAM_TEST_ROLL_P_PIXY             15
-#define GIMBAL_PARAM_TEST_PITCH_P_PIXY            15
+#define GIMBAL_PARAM_TEST_YAW_P_PIXY              90
+#define GIMBAL_PARAM_TEST_ROLL_P_PIXY             80
+#define GIMBAL_PARAM_TEST_PITCH_P_PIXY            70
 
 #define GIMBAL_PARAM_TEST_YAW_P_T3V3              90
 #define GIMBAL_PARAM_TEST_ROLL_P_T3V3             80

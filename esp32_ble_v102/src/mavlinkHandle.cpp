@@ -2135,14 +2135,6 @@ void mavlinkHandle_t::process( void *pvParameters )
 
 		// uint8_t len2 = sizeof(mavlink_msg_heartbeat_t);
 		// memcpy(&control, 0, len2);
-		if(mavlinkSerial1.heartBeat.custom_mode != 0)
-		{
-			control.type = COMMAND_RESET;
-		}
-		else
-		{
-			control.type = 0;
-		}
 
 		mavlinkSerial1.heartBeat.autopilot = 0;
 		mavlinkSerial1.heartBeat.base_mode = 0;
@@ -2156,6 +2148,7 @@ void mavlinkHandle_t::process( void *pvParameters )
 		control.custom_mode = 0;
 		control.mavlink_version = 0;
 		control.system_status = 0;
+		control.type = 0;
 
 		mode = CONTROL_JIG_MODE_IDLE;
 		state = CONTROL_JIG_STATE_IDLE;

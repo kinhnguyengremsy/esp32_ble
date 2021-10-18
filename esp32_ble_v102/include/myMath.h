@@ -50,6 +50,8 @@ float ConvertHex2ToFloat(uint8_t *hex_array);
 */
 uint8_t ConvertChar2Int(char c);
 
+char* DecToHex(int p_intValue);
+
 #endif /* __MYMATH_H */
 
 /************************ (C) COPYRIGHT GREMSY *****END OF FILE****************/
