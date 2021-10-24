@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file    .c
+  * @file    .cpp
   * @author  Gremsy Team
   * @version v100
   * @date    2021
@@ -29,12 +29,12 @@
 /* Private function prototypes------------------------------------------------------------------------------*/
 /* Private functions------------------------------------------------------------------------------*/
 
-/** @group JIG_TEST_RTC_PROCESS
+/** @group 
     @{
-*/#ifndef JIG_TEST_RTC_PROCESS
-#define JIG_TEST_RTC_PROCESS
-/** @brief rtc_process
-    @return rtc_process
+*/#ifndef 
+#define 
+/** @brief 
+    @return 
 */
 
 
