@@ -33,7 +33,7 @@
 #endif
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
-taskManagement_t management;
+extern taskManagement_t management;
 PEGremsy_BLE ble; 
 mavlinkHandle_t mavlink;
 /* Private function prototypes------------------------------------------------------------------------------*/
@@ -43,25 +43,118 @@ mavlinkHandle_t mavlink;
     @{
 */#ifndef TASK_MANAGEMENT_BLE_FUNCTION
 #define TASK_MANAGEMENT_BLE_FUNCTION
-/** @brief  process
-    @return none
+
+/** @brief  getJigStatus
+    @return JigTestStatus_t
 */
-BLE_controlJigStatus_t taskManagement_t::getJigStatus(void)
+JigTestStatus_t taskManagement_t::getJigStatus(void)
 {
-    BLE_controlJigStatus_t jigStatus = BLE_CONTROL_JIG_STATUS_IDLE;
+    JigTestStatus_t status;
 
-    if(BLE_characteristisJigBuffer[0] == 0x01)
-    {
-        jigStatus = BLE_CONTROL_JIG_STATUS_START;
+    // management.jigReady = mavlink.mavlinkSerial1.heartBeat.flag_heartbeat;
+
+    if(management.jigReady == true)
+    {   
+        /// kiem tra jig state test
+        if(mavlink.state == CONTROL_JIG_STATE_IDLE)
+        {
+            status = JIG_STATUS_STANBY;
+        }
+        else
+        {
+            status = JIG_STATUS_RUNNING;
+        }
     }
-    else if(BLE_characteristisJigBuffer[0] == 0x02)
+    else
     {
-        jigStatus = BLE_CONTROL_JIG_STATUS_STOP;
+        status = JIG_STATUS_ERROR;
     }
 
-    return jigStatus;
+    return status;
 }
 
+/** @brief  getProductStatus
+    @return ProductStatus_t
+*/
+ProductStatus_t taskManagement_t::getProductStatus(void)
+{
+    ProductStatus_t status;
+
+    if(productReady == true)
+    {
+        status = JIG_STATUS_A_PRODUCT_ATTACHED;
+    }
+    else
+    {
+        status = JIG_STATUS_NO_PRODUCT_ATTACHED;
+    }
+
+    return status;
+}
+
+/** @brief  getProductOnJigTestStatus
+    @return ProductOnJigTestStatus_t
+*/
+ProductOnJigTestStatus_t taskManagement_t::getProductOnJigTestStatus(void)
+{
+    ProductOnJigTestStatus_t status;
+
+
+
+    return status;
+}
+
+/** @brief  getQcMode
+    @return JigTestQcMode_t
+*/
+JigTestQcMode_t taskManagement_t::getQcMode(void)
+{
+    JigTestQcMode_t qcMode;
+
+
+
+    return qcMode;
+}
+
+/** @brief  getQcModeStatus
+    @return JigTestQcModeStatus_t
+*/
+JigTestQcModeStatus_t taskManagement_t::getQcModeStatus(void)
+{
+    JigTestQcModeStatus_t status;
+
+
+
+    return status;
+}
+
+/** @brief  getJigControl
+    @return jigControl_t
+*/
+jigControl_t taskManagement_t::getJigControl(void)
+{
+    jigControl_t controlStatus = JIG_CONTROL_STOP;
+    uint8_t control = JigControlBuffer[0];
+
+    if(control == 0)
+    {
+        controlStatus = JIG_CONTROL_STOP;
+    }
+    else if(control == 1)
+    {
+        controlStatus = JIG_CONTROL_START;
+    }
+    else if(control == 2)
+    {
+        controlStatus = JIG_CONTROL_PAUSE;
+    }
+    else if(control == 3)
+    {
+        controlStatus = JIG_CONTROL_RESUME;
+    }
+
+    return controlStatus;
+}
 #endif
 /**
     @}

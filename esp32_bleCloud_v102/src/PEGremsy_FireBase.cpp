@@ -133,9 +133,13 @@ void PEGremsy_FireBase_t::process(void)
         String documentPath = "a0/b0/c0/d" + String(count);
 
         count++;
+        while(numberOfMap < 10)
+        {
+            numberOfMap ++;
 
-        content.set("fields/" + String(numberOfMap) +"/mapValue/fields/name/stringValue", "wrench");
-
+            content.set("fields/" + String(numberOfMap) +"/mapValue/fields/name/stringValue", "wrench");
+        }
+        
         Serial.print("Create a document... ");
 
         if (Firebase.Firestore.createDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, documentPath.c_str(), content.raw()))
@@ -148,20 +152,20 @@ void PEGremsy_FireBase_t::process(void)
         }   
         delay(500);
         
-        while(numberOfMap < 10)
-        {
-            numberOfMap ++;
-            Serial.print("Update a document... " + String(numberOfMap));
+        // while(numberOfMap < 10)
+        // {
+        //     numberOfMap ++;
+        //     Serial.print("Update a document... " + String(numberOfMap));
             
-            content.set("fields/" + String(numberOfMap) +"/mapValue/fields/name/stringValue", "wrench" + String(numberOfMap));
+        //     content.set("fields/" + String(numberOfMap) +"/mapValue/fields/name/stringValue", "wrench" + String(numberOfMap));
 
-            if (Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, documentPath.c_str(), content.raw(), "" /* updateMask */))
-                Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
-            else
-                Serial.println(fbdo.errorReason());
+        //     if (Firebase.Firestore.patchDocument(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, documentPath.c_str(), content.raw(), "" /* updateMask */))
+        //         Serial.printf("ok\n%s\n\n", fbdo.payload().c_str());
+        //     else
+        //         Serial.println(fbdo.errorReason());
 
-            delay(500);
-        }     
+        //     delay(500);
+        // }     
 
         numberOfMap = 0;   
     }

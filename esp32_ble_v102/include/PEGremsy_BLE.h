@@ -49,6 +49,7 @@
 /* Exported define ------------------------------------------------------------*/
 
 /* Exported types ------------------------------------------------------------*/
+
 class PEGremsy_BLE
 {
 	public:
@@ -75,8 +76,10 @@ class PEGremsy_BLE
 		/*
 		 * Characteristics for JIGTEST
 		 * */
-		BLECharacteristic 	*pCharacteristicsJIGTEST;
-		BLEDescriptor 		*pJigTestDescriptor;
+		BLECharacteristic 	*pCharacteristicsJigStatus;
+		BLECharacteristic 	*pCharacteristicsProductOnJigStatus;
+		BLECharacteristic 	*pCharacteristicsJigQcMode;
+		BLECharacteristic 	*pCharacteristicsJigControl;
 
 		/*
 		 * Characteristics for mavlink
@@ -100,6 +103,9 @@ class PEGremsy_BLE
 		virtual ~PEGremsy_BLE();
 
 	private:
+		void CharacteristicsJigStatus_Initialize(BLEServer* pServer);
+		void CharacteristicsMavlink_Initialize(BLEServer* pServer);
+		void CharacteristicsDeviceInfo_Initialize(BLEServer* pServer);
 		void send_heartBeatService(mavlink_msg_heartbeat_t *heartbeat, bool Notify)
 		{
 
@@ -214,11 +220,10 @@ class PEGremsy_BLE
 			pCharacteristicsRawImu->notify(Notify);
 		}
 
-		void send_jigStatus(uint8_t* buff)
-		{
-			pCharacteristicsJIGTEST->setValue(buff, 5);
-			pCharacteristicsJIGTEST->notify(true);
-		}
+		void send_jigStatus(bool Notify);
+		void send_ProductOnJigStatus(uint8_t* buff, bool Notify);
+		void send_jigQcMode(uint8_t* buff, bool Notify);
+		void send_jigControl(uint8_t* buff);
 };
 /* Exported constants --------------------------------------------------------*/
 

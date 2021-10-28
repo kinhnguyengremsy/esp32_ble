@@ -16,7 +16,7 @@ void setup()
 
     Serial.begin(115200);
 
-    mavlink.initialize();
+    // mavlink.initialize();
 
     pinMode(22, OUTPUT);
 

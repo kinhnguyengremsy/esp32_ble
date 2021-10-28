@@ -4,6 +4,7 @@
 #include "esp_bt_device.h"
 #include <EEPROM.h>
 
+
 /*
  * Battery Service
  * */
@@ -13,8 +14,11 @@
 /*
  * jigTest Service
  */
-#define BLE_UUID_JIGTEST_SERVICE				"0A630101-47B5-4779-8699-054D0879FC69"
-#define BLE_UUID_JIGTEST_CHAR					"0A630102-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_JIGTEST_SERVICE				"0A630100-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_JIG_STATUS_CHAR				"0A630101-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_PRODUCT_ON_JIG_STATUS_CHAR     "0A630102-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_JIG_QC_MODE_CHAR               "0A630103-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_JIG_CONTROL_CHAR               "0A630104-47B5-4779-8699-054D0879FC69"
 
 /*
  * heartbeat Service
@@ -45,11 +49,11 @@
 #define BLE_BASE_UUID                            "0A630000-47B5-4779-8699-054D0879FC69"//"62610000-f5ea-490e-8548-e6821e3e7792"
 #define BLE_ADV_UUID                             "0A63CB01-47B5-4779-8699-054D0879FC69"//"6261CB01-f5ea-490e-8548-e6821e3e7792"
 
-#define MANUFACTURER            "GREMSY J.S.C."
-#define MODEL_NUMBER            "JIG-01/VN"
-#define SERIAL_NUMBER           "123456"
-#define FIRMWARE_VERSION        "1.0"
-#define HARDWARE_VERSION        "1.0"
+#define MANUFACTURER            "GREMSY"
+#define MODEL_NUMBER            "JIGT3-VN"
+#define SERIAL_NUMBER           "JT3-7E5-A-001"
+#define FIRMWARE_VERSION        "1.0.211029"
+#define HARDWARE_VERSION        "1.0.211001"
 
 #define BLE_DIS_VENDOR_ID_SRC_BLUETOOTH_SIG  0x01
 #define BLE_DIS_VENDOR_ID_LSB                0x63
@@ -59,8 +63,8 @@
 #define BLE_DIS_PRODUCT_VERSION_LSB          0x02
 #define BLE_DIS_PRODUCT_VERSION_MSB          0x00
 
-#define TYPE_DEVICE      0x02
-#define VERSION_DEVICE   0x02
+#define DEVICE_GROUP      0x01
+#define DEVICE_MODEL      0x03
 
 #define FLASH_MEMORY_SIZE 10
 
@@ -81,8 +85,8 @@ BLE_DIS_PRODUCT_VERSION_MSB
 char advertising_data[4] = {
 BLE_DIS_VENDOR_ID_LSB,
 BLE_DIS_VENDOR_ID_MSB,
-TYPE_DEVICE,
-VERSION_DEVICE
+DEVICE_GROUP,
+DEVICE_MODEL
 };
 
 bool isConnect;
@@ -91,6 +95,7 @@ size_t BLE_address[2];
 
 extern mavlinkHandle_t mavlink;
 extern taskManagement_t management;
+extern mavlinkHandle_t mavlink;
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -164,16 +169,16 @@ class writeCallbacks: public BLECharacteristicCallbacks
         Serial.println("*********");
         Serial.print("New value: ");
 
-        BLEUUID jigCharUuId = BLEUUID(BLE_UUID_JIGTEST_CHAR);
+        BLEUUID jigCharUuId = BLEUUID(BLE_UUID_JIG_CONTROL_CHAR);
         BLEUUID UuIdGet = pCharacteristic->getUUID();
 
         if(UuIdGet.equals(jigCharUuId) == true)
         {
             for (int i = 0; i < value.length(); i++)
             {
-                PEGremsy_BLE_getRecieverBuffer(value.length(), 2, management.BLE_characteristisJigBuffer, value, i);
+                PEGremsy_BLE_getRecieverBuffer(value.length(), 1, management.JigControlBuffer, value, i);
                 
-                Serial.print(management.BLE_characteristisJigBuffer[i], HEX);
+                Serial.print(management.JigControlBuffer[i], HEX);
             }
         }
 
@@ -234,14 +239,99 @@ void printDeviceAddress()
     EEPROM.commit();
 }
 
+/** @brief  CharacteristicsJigStatus_Initialize
+    @return none
+*/
+void PEGremsy_BLE::CharacteristicsJigStatus_Initialize(BLEServer* pServer)
+{
+    /// Create service
+    BLEService *pJIGTESTService = pServer->createService(BLE_UUID_JIGTEST_SERVICE);
+
+    /// create Characteristics
+    pCharacteristicsJigStatus           = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_STATUS_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
+
+    pCharacteristicsProductOnJigStatus  = pJIGTESTService->createCharacteristic(BLE_UUID_PRODUCT_ON_JIG_STATUS_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
+    pCharacteristicsJigQcMode           = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_QC_MODE_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
+    pCharacteristicsJigControl          = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_CONTROL_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+
+    /// set write callBack
+    pCharacteristicsJigControl->setCallbacks(new writeCallbacks());
+
+    /// start jigtest service
+    pJIGTESTService->start();
+}
+
+/** @brief  CharacteristicsMavlink_Initialize
+    @return none
+*/
+void PEGremsy_BLE::CharacteristicsMavlink_Initialize(BLEServer* pServer)
+{
+    BLEService *pServiceMavlink = pServer->createService(BLE_UUID_MAVLINK_SERVICE);
+
+    pCharacteristicsHeartbeat = pServiceMavlink->createCharacteristic(BLE_UUID_HEARTBEAT_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+    pCharacteristicsHeartbeat->setCallbacks(new writeCallbacks());
+
+    pCharacteristicsParamValue = pServiceMavlink->createCharacteristic(BLE_UUID_PARAMVALUE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+    pCharacteristicsParamValue->setCallbacks(new writeCallbacks());
+
+    pCharacteristicsRawImu = pServiceMavlink->createCharacteristic(BLE_UUID_RAWIMU_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
+
+    pServiceMavlink->start();
+}
+
+/** @brief  CharacteristicsDeviceInfo_Initialize
+    @return none
+*/
+void PEGremsy_BLE::CharacteristicsDeviceInfo_Initialize(BLEServer* pServer)
+{
+    BLEService *pInfoDeviceService = pServer->createService(BLEUUID(BLE_UUID_DEVICE_INFORMATION_SERVICE));
+
+    /// create manufacture Characteristics
+    pCharacterNameManufacture = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_MANUFACTURER_NAME_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
+
+    /// create model number Characteristics
+    pCharacterModelNumber = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_MODEL_NUMBER_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
+
+    /// create serial number Characteristics
+    pCharacterSerialNumber = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_SERIAL_NUMBER_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
+
+    /// create firmware version Characteristics
+    pCharacterFirmwareVerison = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_FIRMWARE_REVISION_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
+
+    /// create hardware version Characteristics
+    pCharacterHardwareVerison = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_HARDWARE_REVISION_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
+
+    // /// create PnpId Characteristics
+    // pCharacterPnPId = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_PNP_ID_CHAR), BLECharacteristic::PROPERTY_READ);
+
+    /// start device info service
+    pInfoDeviceService->start();
+
+    /// set value mane Manufacture
+    pCharacterNameManufacture->setValue(MANUFACTURER);
+
+    /// set value mane module number
+    pCharacterModelNumber->setValue(MODEL_NUMBER);
+
+    /// set value mane serial number
+    pCharacterSerialNumber->setValue(SERIAL_NUMBER);
+
+    /// set value mane firmware version
+    pCharacterFirmwareVerison->setValue(FIRMWARE_VERSION);
+
+    /// set value mane hardware version
+    pCharacterHardwareVerison->setValue(HARDWARE_VERSION);
+
+    // /// set value mane PnPId
+    // pCharacterPnPId->setValue(PnPData, 7);
+}
+
 /** @brief  initialize
     @return none
 */
 void PEGremsy_BLE::initialize(void)
 {
-    
-
-    String BLE_name = "PEGremsy_BLE ";
+    String BLE_name = "JIG ";
 
     ESP_LOGI(TAG," Init BLE");
 
@@ -306,84 +396,16 @@ void PEGremsy_BLE::initialize(void)
     /*
      * Create JIGTEST Service and Characteristics
      */
-    BLEService *pJIGTESTService = pServer->createService(BLE_UUID_JIGTEST_SERVICE);
-
-    pCharacteristicsJIGTEST = pJIGTESTService->createCharacteristic(BLE_UUID_JIGTEST_CHAR,
-            BLECharacteristic::PROPERTY_READ   |
-            BLECharacteristic::PROPERTY_WRITE  |
-            BLECharacteristic::PROPERTY_NOTIFY |
-            BLECharacteristic::PROPERTY_INDICATE);
-
-    pCharacteristicsJIGTEST->setCallbacks(new writeCallbacks());
-
-    pJigTestDescriptor = new BLEDescriptor(BLE_UUID_JIGTEST_CHAR);
-    pCharacteristicsJIGTEST->addDescriptor(pJigTestDescriptor);
-
-    /// start jigtest service
-    pJIGTESTService->start();
-
-//  std::string value = "jigTest";
-    uint8_t value = 10;
-
-    pJigTestDescriptor->setValue(&value, 1);
+    CharacteristicsJigStatus_Initialize(pServer);
 
     /*
      * Create mavlink Service and Characteristics
      */
-    BLEService *pServiceMavlink = pServer->createService(BLE_UUID_MAVLINK_SERVICE);
-
-    pCharacteristicsHeartbeat = pServiceMavlink->createCharacteristic(BLE_UUID_HEARTBEAT_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
-    pCharacteristicsHeartbeat->setCallbacks(new writeCallbacks());
-
-    pCharacteristicsParamValue = pServiceMavlink->createCharacteristic(BLE_UUID_PARAMVALUE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
-    pCharacteristicsParamValue->setCallbacks(new writeCallbacks());
-
-    pCharacteristicsRawImu = pServiceMavlink->createCharacteristic(BLE_UUID_RAWIMU_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
-
-    pServiceMavlink->start();
+    CharacteristicsMavlink_Initialize(pServer);
     /*
      * Create Info Device Service and Characteristics
      */
-    BLEService *pInfoDeviceService = pServer->createService(BLEUUID(BLE_UUID_DEVICE_INFORMATION_SERVICE));
-
-    /// create manufacture Characteristics
-    pCharacterNameManufacture = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_MANUFACTURER_NAME_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
-
-    /// create model number Characteristics
-    pCharacterModelNumber = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_MODEL_NUMBER_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
-
-    /// create serial number Characteristics
-    pCharacterSerialNumber = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_SERIAL_NUMBER_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
-
-    /// create firmware version Characteristics
-    pCharacterFirmwareVerison = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_FIRMWARE_REVISION_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
-
-    /// create hardware version Characteristics
-    pCharacterHardwareVerison = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_HARDWARE_REVISION_STRING_CHAR), BLECharacteristic::PROPERTY_READ);
-
-    /// create PnpId Characteristics
-    pCharacterPnPId = pInfoDeviceService->createCharacteristic(BLEUUID(BLE_UUID_PNP_ID_CHAR), BLECharacteristic::PROPERTY_READ);
-
-    /// start device info service
-    pInfoDeviceService->start();
-
-    /// set value mane Manufacture
-    pCharacterNameManufacture->setValue(MANUFACTURER);
-
-    /// set value mane module number
-    pCharacterModelNumber->setValue(MODEL_NUMBER);
-
-    /// set value mane serial number
-    pCharacterSerialNumber->setValue(SERIAL_NUMBER);
-
-    /// set value mane firmware version
-    pCharacterFirmwareVerison->setValue(FIRMWARE_VERSION);
-
-    /// set value mane hardware version
-    pCharacterHardwareVerison->setValue(HARDWARE_VERSION);
-
-    /// set value mane PnPId
-    pCharacterPnPId->setValue(PnPData, 7);
+    CharacteristicsDeviceInfo_Initialize(pServer);
 
     // Start advertising
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -443,20 +465,92 @@ bool PEGremsy_BLE::heartBeatHandle(void)
     return ret;
 }
 
+/** @brief  send_jigStatus
+    @return none
+*/
+void PEGremsy_BLE::send_jigStatus(bool Notify)
+{
+    static uint32_t timeDebug = 0;
+    // JigTestStatus_t jigStatus = management.getJigStatus();
+    // ProductStatus_t productStatus = management.getProductStatus();
+    uint8_t jigStatusBuffer[2] = {0};
+
+    /// kiem tra jig Status
+    if(management.jigReady == true)
+    {
+        if(mavlink.state == CONTROL_JIG_STATE_IDLE)
+        {
+            jigStatusBuffer[0] = 0;
+
+            Serial.println("JIG Standby");
+        }
+        else
+        {
+            jigStatusBuffer[0] = 1;
+            Serial.println("JIG Running");
+        }
+    }
+    else if (management.jigReady == false)
+    {
+        jigStatusBuffer[0] = 2;
+        Serial.println("JIG Error");
+    }
+
+    /// kiem tra product status
+    if(management.productReady == true)
+    {
+        jigStatusBuffer[1] = 1;
+    }
+    else
+    {
+        jigStatusBuffer[1] = 0;
+    }
+
+	if(millis() - timeDebug > 1000 || timeDebug == 0)
+	{
+		timeDebug = millis();
+
+		Serial.printf("jigReady : %d | productReady : %d\n", jigStatusBuffer[0], jigStatusBuffer[1]);
+	}
+
+    pCharacteristicsJigStatus->setValue(jigStatusBuffer, 2);
+    pCharacteristicsJigStatus->notify();
+}
+
+/** @brief  send_ProductOnJigStatus
+    @return none
+*/
+void PEGremsy_BLE::send_ProductOnJigStatus(uint8_t* buff, bool Notify)
+{
+    pCharacteristicsProductOnJigStatus->setValue(buff, 1);
+    pCharacteristicsProductOnJigStatus->notify(Notify);
+}
+
+/** @brief  send_jigQcMode
+    @return none
+*/
+void PEGremsy_BLE::send_jigQcMode(uint8_t* buff, bool Notify)
+{
+    pCharacteristicsJigQcMode->setValue(buff, 2);
+    pCharacteristicsJigQcMode->notify(Notify);
+}
+
+/** @brief  send_jigControl
+    @return none
+*/
+void PEGremsy_BLE::send_jigControl(uint8_t* buff)
+{
+    pCharacteristicsJigControl->setValue(buff, 1);
+}
+
 /** @brief  process
     @return none
 */
 void PEGremsy_BLE::process(void)
 {
-    static uint8_t count[10];
-    static uint8_t hex_array[4];
-    uint8_t votlta;
-    static uint32_t test = 50;
-    static float testFloat = 1;
     static uint32_t timeSequence;
+    static bool state = false;
 
-    // mavlink.process(NULL);
-    
     if(isConnect == true)
     {
         heartBeatHandle();
@@ -464,92 +558,36 @@ void PEGremsy_BLE::process(void)
         if(millis() - timeSequence > 100)
         {
             timeSequence = millis();
-
-            static bool state = false;
+            
             digitalWrite(22, state);
 
             state = !state;
 
-            testFloat+=0.1;
+            /// send Characteristics jigStatus
 
-            ConvertFloat2Hex(testFloat, hex_array);
+            send_jigStatus(true);
 
-            // Serial.println("[hextoFloat] value : " + String(ConvertHex2ToFloat(hex_array)));
+            /// send Characteristics productOnStatus
+            ProductOnJigTestStatus_t productOnStatus = management.getProductOnJigTestStatus();
+            uint8_t productOnStatusBuffer[1] = {(uint8_t)productOnStatus};
 
-            votlta = random(90, 100);
-            for(uint8_t i = 0; i < 10; i++) count[i]+=i;
-//          Serial.println("Battery Level : " + String(votlta));
+            send_ProductOnJigStatus(productOnStatusBuffer, true);
 
-            pCharacterBatteryLevel->setValue(&votlta, 1);
-            pCharacterBatteryLevel->notify(true);
+            /// send Characteristics qcMode
+            JigTestQcMode_t qcMode = management.getQcMode();
+            JigTestQcModeStatus_t qcModeStatus = management.getQcModeStatus();
+            uint8_t qcModeBuffer[2] = {(uint8_t)qcMode, (uint8_t)qcModeStatus};
 
-            uint8_t status[2] = {0};
-            uint8_t result[2] = {0};
-            uint8_t buffStatus[5] = {0};
+            send_jigQcMode(qcModeBuffer, true);
 
-            memcpy(status, management.BLE_characteristisJigBuffer, 2);
-            result[0] = mavlink.mavlinkSerial1.heartBeat.custom_mode << 8;
-            result[1] = mavlink.mavlinkSerial1.heartBeat.custom_mode;
+            /// send Characteristics jigControl
+            jigControl_t control = management.getJigControl();
+            uint8_t controlBuffer[1] = {(uint8_t)control};
 
-            memcpy(buffStatus, status, 2);
-            memcpy(buffStatus + 2, &mavlink.mavlinkSerial1.heartBeat.base_mode, 1);
-            memcpy(buffStatus + 3, result, 2);
-
-            /// send to app jig status
-            send_jigStatus(buffStatus);
-
-            mavlink_msg_heartbeat_t heartbeat;
-            heartbeat. custom_mode      = test++;
-            heartbeat. type             = 6;
-            heartbeat. autopilot        = 2;
-            heartbeat. base_mode        = 4;
-            heartbeat. system_status    = 5;
-            heartbeat. mavlink_version  = 3;
-            heartbeat. flag_heartbeat   = true;
-
-            send_heartBeatService(&heartbeat, true);
-
-            mavlink_msg_param_value_t param_value;
-            param_value.param_value = testFloat;
-            param_value.param_count = test;
-            param_value.param_index = test - 50;
-            memcpy(param_value.param_id, "nguyenvankinh123", 16);
-            param_value.param_type = 0;
-
-            send_paramValueCharastics(&param_value, true);
-
-            send_rawImuCharastics(&mavlink.mavlinkSerial2.rawImu, true);
-
-//          char buff[300];
-//          sprintf(buff, "[raw_imu] xacc : %6d, yacc : %6d, zacc : %6d\n "
-//                  "xgyro : %6d, ygyro : %6d, zgyro : %6d\n "
-//                  "xmag : %6d, ymag : %6d, zmag : %6d\n "
-//                  "id : %2d, temperature : %2d"
-//              , mavlink.rawImu.xacc
-//              , mavlink.rawImu.yacc
-//              , mavlink.rawImu.zacc
-//              , mavlink.rawImu.xgyro
-//              , mavlink.rawImu.ygyro
-//              , mavlink.rawImu.zgyro
-//              , mavlink.rawImu.xmag
-//              , mavlink.rawImu.ymag
-//              , mavlink.rawImu.zmag
-//              , mavlink.rawImu.id
-//              , mavlink.rawImu.temperature
-//          );
-//
-//          Serial.println(buff);
+            send_jigControl(controlBuffer);
 
         }
     }
-
-	/// get jig status from app
-	BLE_controlJigStatus_t jigStatus = management.getJigStatus();
-
-	if(jigStatus == BLE_CONTROL_JIG_STATUS_STOP)
-	{
-
-	}
 }
 
 #endif

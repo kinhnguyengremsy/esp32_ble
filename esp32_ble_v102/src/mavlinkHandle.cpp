@@ -36,7 +36,7 @@ typedef enum
 }controlAngle_state;
 /* Private define------------------------------------------------------------------------------*/
 #define DEBUG_STATE 0
-#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2				0
+#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2				1
 #define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1				0
 #define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2		0
 #define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL1		0
@@ -1141,16 +1141,14 @@ void mavlinkHandle_t::mavlink_param_request_read(mavlink_channel_t channel, int1
 /** @brief getHeartBeatReady
     @return none
 */
-bool mavlinkHandle_t::getHeartBeatReady(bool* flagHeartBeat, mavlink_channel_t channel)
+bool mavlinkHandle_t::getHeartBeatReady(uint32_t* timeOut_heartBeat, bool* flagHeartBeat, mavlink_channel_t channel)
 {
-	bool ret = false;
-	static uint32_t timeOut_heartBeat = 0;
 	static bool heartBeatReady1 = false;
 	static bool heartBeatReady2 = false;
 
-	if(millis() - timeOut_heartBeat > 1000 || timeOut_heartBeat == 0)
+	if(millis() - *timeOut_heartBeat > 1000 || *timeOut_heartBeat == 0)
 	{
-		timeOut_heartBeat = millis();
+		*timeOut_heartBeat = millis();
 
 		if(*flagHeartBeat == true)
 		{
@@ -1162,6 +1160,8 @@ bool mavlinkHandle_t::getHeartBeatReady(bool* flagHeartBeat, mavlink_channel_t c
 				Serial.println("[getHeartBeatReady] heartBeat Gimbal ready");
 
 				heartBeatReady1 = true;
+
+				return true;
 			}
 			else if(channel == MAVLINK_COMM_1)
 			{
@@ -1169,6 +1169,8 @@ bool mavlinkHandle_t::getHeartBeatReady(bool* flagHeartBeat, mavlink_channel_t c
 				Serial.println("[getHeartBeatReady] heartBeat Jig ready");
 
 				heartBeatReady2 = true;
+
+				return true;
 			}
 		}
 		else
@@ -1178,29 +1180,19 @@ bool mavlinkHandle_t::getHeartBeatReady(bool* flagHeartBeat, mavlink_channel_t c
 				heartBeatReady1 = false;
 
 				Serial.println("[getHeartBeatReady] heartBeat Gimbal not ready");
+
+				return false;
 			}
 			else if(channel == MAVLINK_COMM_1)
 			{
 				heartBeatReady2 = false;
 
 				Serial.println("[getHeartBeatReady] heartBeat Jig not ready");
-			}
 
-			
+				return false;
+			}
 		}
 	}
-
-	if(heartBeatReady1 == true)
-	{
-		ret = true;
-	}
-
-	if(heartBeatReady2 == true)
-	{
-		ret = true;
-	}	
-
-	return ret;
 }
 
 /** @brief requestParamGimbal
@@ -1861,8 +1853,9 @@ void mavlinkHandle_t::controlJig(void)
 		{
 			/// kiem tra heartbeat gimbal
 			static bool gimbalHeatBeatREady = false;
+			static uint32_t heartBeatTimeOut = 0;
 
-			gimbalHeatBeatREady = getHeartBeatReady(&mavlinkSerial2.heartBeat.flag_heartbeat, MAVLINK_COMM_0);
+			gimbalHeatBeatREady = getHeartBeatReady(&heartBeatTimeOut, &mavlinkSerial2.heartBeat.flag_heartbeat, MAVLINK_COMM_0);
 
 			if(gimbalHeatBeatREady == true)
 			{
@@ -2109,50 +2102,85 @@ void mavlinkHandle_t::controlJig(void)
 */
 void mavlinkHandle_t::process( void *pvParameters )
 {
-
-	static bool JigHeartBeatReady = false;
+	static uint32_t timeDebug = 0;
+	static uint32_t timeOutHeartBeat_Serial2 = 0;
+	static uint32_t timeOutHeartBeat_Serial1 = 0;
+	
 
 	sendData();
 	recieverData();
 
-	/// get jig status from app
-	BLE_controlJigStatus_t jigStatus = management.getJigStatus();
+	/// get jig ready
+	management.jigReady = getHeartBeatReady(&timeOutHeartBeat_Serial1, &mavlinkSerial1.heartBeat.flag_heartbeat, MAVLINK_COMM_1);
 
-	if(jigStatus == BLE_CONTROL_JIG_STATUS_START)
+	/// get product ready
+	management.productReady = getHeartBeatReady(&timeOutHeartBeat_Serial2, &mavlinkSerial2.heartBeat.flag_heartbeat, MAVLINK_COMM_0);
+
+	/// get jigControl from app
+	jigControl_t jigControl = management.getJigControl();
+
+	if(jigControl == JIG_CONTROL_STOP)
 	{
-		JigHeartBeatReady = getHeartBeatReady(&mavlinkSerial1.heartBeat.flag_heartbeat, MAVLINK_COMM_1);
 
-		if(JigHeartBeatReady == true)
-		{
-			controlJig();			
-		}
 	}
-	if(jigStatus == BLE_CONTROL_JIG_STATUS_STOP)
+	else if(jigControl == JIG_CONTROL_START)
 	{
-		// uint16_t len1 = sizeof(mavlinkMsg_t);
-        // memcpy(&mavlinkSerial1, 0, len1);
-		// memcpy(&mavlinkSerial2, 0, len1);
-
-		// uint8_t len2 = sizeof(mavlink_msg_heartbeat_t);
-		// memcpy(&control, 0, len2);
-
-		mavlinkSerial1.heartBeat.autopilot = 0;
-		mavlinkSerial1.heartBeat.base_mode = 0;
-		mavlinkSerial1.heartBeat.custom_mode = 0;
-		mavlinkSerial1.heartBeat.mavlink_version = 0;
-		mavlinkSerial1.heartBeat.system_status = 0;
-		mavlinkSerial1.heartBeat.type = 0;
-
-		control.autopilot = 0;
-		control.base_mode = 0;
-		control.custom_mode = 0;
-		control.mavlink_version = 0;
-		control.system_status = 0;
-		control.type = 0;
-
-		mode = CONTROL_JIG_MODE_IDLE;
-		state = CONTROL_JIG_STATE_IDLE;
+		controlJig();
 	}
+	else if(jigControl == JIG_CONTROL_PAUSE)
+	{
+
+	}
+	else if(jigControl == JIG_CONTROL_RESUME)
+	{
+
+	}
+
+
+	// if(millis() - timeDebug > 1000 || timeDebug == 0)
+	// {
+	// 	timeDebug = millis();
+
+	// 	Serial.printf("jigReady : %d | productReady : %d\n", management.jigReady, management.productReady);
+	// }
+	// /// get jig status from app
+	// BLE_controlJigStatus_t jigStatus = management.getJigStatus();
+
+	// if(jigStatus == BLE_CONTROL_JIG_STATUS_START)
+	// {
+	// 	JigHeartBeatReady = getHeartBeatReady(&mavlinkSerial1.heartBeat.flag_heartbeat, MAVLINK_COMM_1);
+
+	// 	if(JigHeartBeatReady == true)
+	// 	{
+	// 		controlJig();			
+	// 	}
+	// }
+	// if(jigStatus == BLE_CONTROL_JIG_STATUS_STOP)
+	// {
+	// 	// uint16_t len1 = sizeof(mavlinkMsg_t);
+    //     // memcpy(&mavlinkSerial1, 0, len1);
+	// 	// memcpy(&mavlinkSerial2, 0, len1);
+
+	// 	// uint8_t len2 = sizeof(mavlink_msg_heartbeat_t);
+	// 	// memcpy(&control, 0, len2);
+
+	// 	mavlinkSerial1.heartBeat.autopilot = 0;
+	// 	mavlinkSerial1.heartBeat.base_mode = 0;
+	// 	mavlinkSerial1.heartBeat.custom_mode = 0;
+	// 	mavlinkSerial1.heartBeat.mavlink_version = 0;
+	// 	mavlinkSerial1.heartBeat.system_status = 0;
+	// 	mavlinkSerial1.heartBeat.type = 0;
+
+	// 	control.autopilot = 0;
+	// 	control.base_mode = 0;
+	// 	control.custom_mode = 0;
+	// 	control.mavlink_version = 0;
+	// 	control.system_status = 0;
+	// 	control.type = 0;
+
+	// 	mode = CONTROL_JIG_MODE_IDLE;
+	// 	state = CONTROL_JIG_STATE_IDLE;
+	// }
 }
 
 #endif

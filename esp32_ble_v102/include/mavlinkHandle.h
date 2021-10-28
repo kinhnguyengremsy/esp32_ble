@@ -303,7 +303,7 @@ class mavlinkHandle_t
 		void mavlink_set_gimbal_reboot(mavlink_channel_t channel);
 		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
 		void sendheartbeat(mavlink_channel_t channel);
-		bool getHeartBeatReady(bool* flagHeartBeat, mavlink_channel_t channel);
+		bool getHeartBeatReady(uint32_t* timeOut_heartBeat, bool* flagHeartBeat, mavlink_channel_t channel);
 		bool getGimbalReturnHome(void);
 		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
 		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t modeInput, controlJigMode_t modeOutput);
