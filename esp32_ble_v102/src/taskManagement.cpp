@@ -99,7 +99,22 @@ ProductOnJigTestStatus_t taskManagement_t::getProductOnJigTestStatus(void)
 {
     ProductOnJigTestStatus_t status;
 
-
+    if(mavlink.state == CONTROL_JIG_STATE_IDLE)
+    {
+        status = PRODUCT_WAIT_FOR_QC;
+    }
+    else if(mavlink.state == CONTROL_JIG_STATE_DONE)
+    {
+        status = PRODUCT_COMPLETE;
+    }
+    else if(mavlink.state == CONTROL_JIG_STATE_ERROR)
+    {
+        status = PRODUCT_FAIL;
+    }
+    else 
+    {
+        status = PRODUCT_RUNNING;
+    }
 
     return status;
 }
@@ -111,7 +126,7 @@ JigTestQcMode_t taskManagement_t::getQcMode(void)
 {
     JigTestQcMode_t qcMode;
 
-
+    qcMode = (JigTestQcMode_t)mavlink.mode;
 
     return qcMode;
 }
@@ -123,7 +138,7 @@ JigTestQcModeStatus_t taskManagement_t::getQcModeStatus(void)
 {
     JigTestQcModeStatus_t status;
 
-
+    status = qcModeStatus;
 
     return status;
 }
@@ -196,14 +211,13 @@ void BLETask( void *pvParameters )
 
     for(;;)
     {
+        // mavlink.process(NULL);
         ble.process();
-
-        mavlink.process(NULL);
     }
 }
 
 /** @brief initialize
-    @return initialize
+    @return none
 */
 void taskManagement_t::initialize(void)
 {

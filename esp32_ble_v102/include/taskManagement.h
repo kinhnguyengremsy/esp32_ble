@@ -96,6 +96,9 @@ class taskManagement_t
     bool jigReady;
     bool productReady;
 
+    ProductOnJigTestStatus_t  productOnState;
+    JigTestQcModeStatus_t     qcModeStatus;
+
     JigTestStatus_t getJigStatus(void);
     ProductStatus_t getProductStatus(void);
     ProductOnJigTestStatus_t getProductOnJigTestStatus(void);

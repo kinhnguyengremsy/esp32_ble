@@ -221,8 +221,8 @@ class PEGremsy_BLE
 		}
 
 		void send_jigStatus(bool Notify);
-		void send_ProductOnJigStatus(uint8_t* buff, bool Notify);
-		void send_jigQcMode(uint8_t* buff, bool Notify);
+		void send_ProductOnJigStatus(bool Notify);
+		void send_jigQcMode(bool Notify);
 		void send_jigControl(uint8_t* buff);
 };
 /* Exported constants --------------------------------------------------------*/

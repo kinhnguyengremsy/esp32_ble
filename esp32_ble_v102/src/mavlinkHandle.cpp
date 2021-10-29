@@ -36,7 +36,7 @@ typedef enum
 }controlAngle_state;
 /* Private define------------------------------------------------------------------------------*/
 #define DEBUG_STATE 0
-#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2				1
+#define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL2				0
 #define DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1				0
 #define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2		0
 #define DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL1		0
@@ -1141,58 +1141,71 @@ void mavlinkHandle_t::mavlink_param_request_read(mavlink_channel_t channel, int1
 /** @brief getHeartBeatReady
     @return none
 */
-bool mavlinkHandle_t::getHeartBeatReady(uint32_t* timeOut_heartBeat, bool* flagHeartBeat, mavlink_channel_t channel)
+bool mavlinkHandle_t::getSerial1HeartBeatReady(uint32_t time)
 {
-	static bool heartBeatReady1 = false;
-	static bool heartBeatReady2 = false;
+	bool ret = false;
+	static uint32_t timeOut_heartBeat = 0;
+	static bool heartBeatReady = false;
 
-	if(millis() - *timeOut_heartBeat > 1000 || *timeOut_heartBeat == 0)
+	if(millis() - timeOut_heartBeat > time || timeOut_heartBeat == 0)
 	{
-		*timeOut_heartBeat = millis();
+		timeOut_heartBeat = millis();
 
-		if(*flagHeartBeat == true)
+		if(mavlinkSerial1.heartBeat.flag_heartbeat == true)
 		{
-			*flagHeartBeat = false;
+			mavlinkSerial1.heartBeat.flag_heartbeat = false;
 
-			if(channel == MAVLINK_COMM_0)
-			{
-				if(heartBeatReady1 == false)
-				Serial.println("[getHeartBeatReady] heartBeat Gimbal ready");
+			if(heartBeatReady == false)
+			Serial.println("[getHeartBeatReady] heartBeat Jig ready");
 
-				heartBeatReady1 = true;
+			heartBeatReady = true;
 
-				return true;
-			}
-			else if(channel == MAVLINK_COMM_1)
-			{
-				if(heartBeatReady2 == false)
-				Serial.println("[getHeartBeatReady] heartBeat Jig ready");
-
-				heartBeatReady2 = true;
-
-				return true;
-			}
+			ret = true;
 		}
 		else
 		{
-			if(channel == MAVLINK_COMM_0)
-			{
-				heartBeatReady1 = false;
+			heartBeatReady = false;
 
-				Serial.println("[getHeartBeatReady] heartBeat Gimbal not ready");
-
-				return false;
-			}
-			else if(channel == MAVLINK_COMM_1)
-			{
-				heartBeatReady2 = false;
-
-				Serial.println("[getHeartBeatReady] heartBeat Jig not ready");
-
-				return false;
-			}
+			Serial.println("[getHeartBeatReady] heartBeat Jig not ready");
 		}
 	}
+
+	return ret;
+}
+
+/** @brief getHeartBeatReady
+    @return none
+*/
+bool mavlinkHandle_t::getSerial2HeartBeatReady(uint32_t time)
+{
+	bool ret = false;
+	static uint32_t timeOut_heartBeat = 0;
+	static bool heartBeatReady = false;
+
+	if(millis() - timeOut_heartBeat > time || timeOut_heartBeat == 0)
+	{
+		timeOut_heartBeat = millis();
+
+		if(mavlinkSerial2.heartBeat.flag_heartbeat == true)
+		{
+			mavlinkSerial2.heartBeat.flag_heartbeat = false;
+
+			if(heartBeatReady == false)
+			Serial.println("[getHeartBeatReady] heartBeat Gimbal ready");
+
+			heartBeatReady = true;
+
+			ret = true;
+		}
+		else
+		{
+			heartBeatReady = false;
+
+			Serial.println("[getHeartBeatReady] heartBeat Gimbal not ready");
+		}
+	}
+
+	return ret;
 }
 
 /** @brief requestParamGimbal
@@ -1700,10 +1713,16 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 		else rcInput = false;
 
 		applyControl = applyControlGimbalWithRC(modeControl, rcInput);
+
+		/// QcModeStatus PASS
+		management.qcModeStatus = JIG_QC_MODE_STATUS_IDLE;
 	}
 	else
 	{
 		control.type = COMMAND_START;
+
+		/// running
+		management.qcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
 
 		if(mavlinkSerial1.heartBeat.type == COMMAND_START)
 		{
@@ -1720,6 +1739,9 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 					applyControl = false;
 					timeSendModeRcControl = 0;
 					countMode = 0;
+
+					/// QcModeStatus FAIL
+					management.qcModeStatus = JIG_QC_MODE_STATUS_FAILED;
 
 					ret = true;
 				}
@@ -1747,6 +1769,9 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 							timeSendModeRcControl = 0;
 							countMode = 0;
 
+							/// QcModeStatus PASS
+							management.qcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+
 							ret = true;
 						}
 					}
@@ -1759,6 +1784,9 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 							applyControl = false;
 							timeSendModeRcControl = 0;
 							countMode = 0;
+
+							/// QcModeStatus PASS
+							management.qcModeStatus = JIG_QC_MODE_STATUS_PASSED;
 
 							ret = true;
 						}
@@ -1815,9 +1843,9 @@ void mavlinkHandle_t::controlJig(void)
 				if(flagJigReset == true)
 				{
 					/// watting jig reset
-					if(resetJigCount == 5)
+					if(resetJigCount == 3)
 					{
-						control.type = 0;
+						control.type = COMMAND_STOP;
 
 						/// kiem tra trang thai jig
 						if(mavlinkSerial1.heartBeat.system_status == COMMAND_STATUS_STANDBY)
@@ -1851,17 +1879,18 @@ void mavlinkHandle_t::controlJig(void)
 		}break;
 		case CONTROL_JIG_STATE_SETTING_PARAM_GIMBAL :
 		{
-			/// kiem tra heartbeat gimbal
-			static bool gimbalHeatBeatREady = false;
-			static uint32_t heartBeatTimeOut = 0;
+			static bool enableSEttingParam = false;
 
-			gimbalHeatBeatREady = getHeartBeatReady(&heartBeatTimeOut, &mavlinkSerial2.heartBeat.flag_heartbeat, MAVLINK_COMM_0);
+			if(management.productReady == true)
+			{
+				enableSEttingParam = true;
+			}
 
-			if(gimbalHeatBeatREady == true)
+			if(enableSEttingParam == true)
 			{
 				if(settingParamGimbal() == true)
 				{
-					gimbalHeatBeatREady = false;
+					enableSEttingParam = false;
 
 					/// next state
 					state = CONTROL_JIG_STATE_START;
@@ -2050,15 +2079,26 @@ void mavlinkHandle_t::controlJig(void)
 						
 						if(applyControlJig(GIMBAL_RC_MODE_MAVLINK, modeInput, CONTROL_JIG_MODE_DONE) == true)
 						{
-							mode = CONTROL_JIG_MODE_DONE;
-							control.base_mode = CONTROL_JIG_MODE_DONE;
-							Serial.println("CONTROL_JIG_MODE_DONE");
-
-							state = CONTROL_JIG_STATE_DONE;
-							Serial.println("CONTROL_JIG_STATE_DONE");
+							mode = CONTROL_JIG_MODE_CHECK_ALL_RESULT;
+							control.base_mode = CONTROL_JIG_MODE_CHECK_ALL_RESULT;
+							Serial.println("CONTROL_JIG_MODE_CHECK_ALL_RESULT");
 						}
 
 					#endif
+				}break;
+				case CONTROL_JIG_MODE_CHECK_ALL_RESULT:
+				{
+					/// kiem tra ket qua
+					if(mavlinkSerial1.heartBeat.custom_mode == 0x7F)
+					{
+						mode = CONTROL_JIG_MODE_DONE;
+						Serial.println("CONTROL_JIG_MODE_DONE");
+					}
+					else
+					{
+						mode = CONTROL_JIG_MODE_ERROR;
+						Serial.println("CONTROL_JIG_MODE_ERROR");
+					}
 				}break;
 				
 				default:
@@ -2102,19 +2142,21 @@ void mavlinkHandle_t::controlJig(void)
 */
 void mavlinkHandle_t::process( void *pvParameters )
 {
-	static uint32_t timeDebug = 0;
-	static uint32_t timeOutHeartBeat_Serial2 = 0;
-	static uint32_t timeOutHeartBeat_Serial1 = 0;
-	
+	static uint32_t timeOutHeartBeat = 0;
 
 	sendData();
 	recieverData();
 
-	/// get jig ready
-	management.jigReady = getHeartBeatReady(&timeOutHeartBeat_Serial1, &mavlinkSerial1.heartBeat.flag_heartbeat, MAVLINK_COMM_1);
+	if(millis() - timeOutHeartBeat > 2000 || timeOutHeartBeat == 0)
+	{
+		timeOutHeartBeat = millis();
 
-	/// get product ready
-	management.productReady = getHeartBeatReady(&timeOutHeartBeat_Serial2, &mavlinkSerial2.heartBeat.flag_heartbeat, MAVLINK_COMM_0);
+		/// get jig ready
+		management.jigReady = getSerial1HeartBeatReady(0);
+
+		/// get product ready
+		management.productReady = getSerial2HeartBeatReady(0);
+	}
 
 	/// get jigControl from app
 	jigControl_t jigControl = management.getJigControl();
@@ -2136,13 +2178,6 @@ void mavlinkHandle_t::process( void *pvParameters )
 
 	}
 
-
-	// if(millis() - timeDebug > 1000 || timeDebug == 0)
-	// {
-	// 	timeDebug = millis();
-
-	// 	Serial.printf("jigReady : %d | productReady : %d\n", management.jigReady, management.productReady);
-	// }
 	// /// get jig status from app
 	// BLE_controlJigStatus_t jigStatus = management.getJigStatus();
 

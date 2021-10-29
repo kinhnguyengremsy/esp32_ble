@@ -129,6 +129,7 @@ typedef enum _controlJigState_t
 	CONTROL_JIG_STATE_RUNNING,
 	CONTROL_JIG_STATE_DONE,
 	CONTROL_JIG_STATE_RESET,
+	CONTROL_JIG_STATE_ERROR,
 
 }controlJigState_t;
 
@@ -146,7 +147,10 @@ typedef enum _controlJigMode_t
 	CONTROL_JIG_MODE_COM4,
 	CONTROL_JIG_MODE_AUX,
 	CONTROL_JIG_MODE_VIRATE,
+	CONTROL_JIG_MODE_CHECK_ALL_RESULT,
 	CONTROL_JIG_MODE_DONE,
+	CONTROL_JIG_MODE_ERROR,
+
 }controlJigMode_t;
 
 /**
@@ -303,7 +307,8 @@ class mavlinkHandle_t
 		void mavlink_set_gimbal_reboot(mavlink_channel_t channel);
 		bool requestGimbalModeRC(modeRC_control_gimbal_t modeRC);
 		void sendheartbeat(mavlink_channel_t channel);
-		bool getHeartBeatReady(uint32_t* timeOut_heartBeat, bool* flagHeartBeat, mavlink_channel_t channel);
+		bool getSerial1HeartBeatReady(uint32_t time);
+		bool getSerial2HeartBeatReady(uint32_t time);
 		bool getGimbalReturnHome(void);
 		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
 		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t modeInput, controlJigMode_t modeOutput);
