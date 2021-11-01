@@ -197,6 +197,8 @@ class writeCallbacks: public BLECharacteristicCallbacks
                 PEGremsy_BLE_getRecieverBuffer(value.length(), 1, management.JigControlBuffer, value, i);
                 
                 Serial.print(management.JigControlBuffer[i], HEX);
+                Serial.println("");
+                Serial.print(value[i], HEX);
             }
         }
 
@@ -398,18 +400,18 @@ void PEGremsy_BLE::initialize(void)
     /*
      * Create Battery Service and Characteristics
      */
-    BLEService *pBatteryService = pServer->createService(BLEUUID(BLE_UUID_BATTERY_SERVICE));
+    // BLEService *pBatteryService = pServer->createService(BLEUUID(BLE_UUID_BATTERY_SERVICE));
 
-    /// create battery Characteristics
-    pCharacterBatteryLevel = pBatteryService->createCharacteristic(BLEUUID(BLE_UUID_BATTERY_LEVEL_CHAR), BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE);
+    // /// create battery Characteristics
+    // pCharacterBatteryLevel = pBatteryService->createCharacteristic(BLEUUID(BLE_UUID_BATTERY_LEVEL_CHAR), BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE);
 
-    pDescriptorBatteryLevel = new BLEDescriptor(BLEUUID("2901"));
-    pCharacterBatteryLevel->addDescriptor(pDescriptorBatteryLevel);
+    // pDescriptorBatteryLevel = new BLEDescriptor(BLEUUID("2901"));
+    // pCharacterBatteryLevel->addDescriptor(pDescriptorBatteryLevel);
 
-    /// start battery Service
-    pBatteryService->start();
+    // /// start battery Service
+    // pBatteryService->start();
 
-    pDescriptorBatteryLevel->setValue("value");
+    // pDescriptorBatteryLevel->setValue("value");
 
     /*
      * Create JIGTEST Service and Characteristics
@@ -419,7 +421,7 @@ void PEGremsy_BLE::initialize(void)
     /*
      * Create mavlink Service and Characteristics
      */
-    CharacteristicsMavlink_Initialize(pServer);
+    // CharacteristicsMavlink_Initialize(pServer);
     /*
      * Create Info Device Service and Characteristics
      */
@@ -503,17 +505,13 @@ void PEGremsy_BLE::send_jigStatus(bool Notify)
 
     #endif
 
+    if(flagSendJigStatus == true)
+    {
+        flagSendJigStatus = false;
 
-    pCharacteristicsJigStatus->setValue(jigStatusBuffer, 2);
-    pCharacteristicsJigStatus->notify();
-
-
-	// if(millis() - timeDebug > 1000 || timeDebug == 0)
-	// {
-	// 	timeDebug = millis();
-
-	// 	Serial.printf("jigReady : %d-%d | productReady : %d-%d\n", management.jigReady, jigStatusBuffer[0], management.productReady, jigStatusBuffer[1]);
-	// }
+        pCharacteristicsJigStatus->setValue(jigStatusBuffer, 2);
+        pCharacteristicsJigStatus->notify(true);
+    }
 }
 
 /** @brief  send_ProductOnJigStatus
@@ -530,9 +528,13 @@ void PEGremsy_BLE::send_ProductOnJigStatus(bool Notify)
         uint8_t productOnStatusBuffer[1] = {(uint8_t)productOnStatus};
     #endif
 
+    if(flagSendProductOnJigStatus == true)
+    {
+        flagSendProductOnJigStatus = false;
 
-    pCharacteristicsProductOnJigStatus->setValue(productOnStatusBuffer, 1);
-    pCharacteristicsProductOnJigStatus->notify(Notify);
+        pCharacteristicsProductOnJigStatus->setValue(productOnStatusBuffer, 1);
+        pCharacteristicsProductOnJigStatus->notify(true);
+    }
 }
 
 /** @brief  send_jigQcMode
@@ -552,16 +554,31 @@ void PEGremsy_BLE::send_jigQcMode(bool Notify)
 
     #endif
 
-    pCharacteristicsJigQcMode->setValue(qcModeBuffer, 2);
-    pCharacteristicsJigQcMode->notify(Notify);
+    if(flagSendJigQcMode == true)
+    {
+        flagSendJigQcMode = false;
+
+        pCharacteristicsJigQcMode->setValue(qcModeBuffer, 2);
+        pCharacteristicsJigQcMode->notify(true);
+    }
 }
 
 /** @brief  send_jigControl
     @return none
 */
-void PEGremsy_BLE::send_jigControl(uint8_t* buff)
+void PEGremsy_BLE::send_jigControl(void)
 {
-    pCharacteristicsJigControl->setValue(buff, 1);
+    jigControl_t control = management.getJigControl();
+    uint8_t controlBuffer[1] = {(uint8_t)control};
+
+    if(flagSendJigControl == true)
+    {
+        flagSendJigControl = false;
+
+        pCharacteristicsJigControl->setValue(controlBuffer, 1);
+    }  
+
+    // pCharacteristicsJigControl->setValue(controlBuffer, 1); 
 }
 
 /** @brief  process
@@ -571,6 +588,7 @@ void PEGremsy_BLE::process(void)
 {
     static uint32_t timeSequence;
     static bool state = false;
+    static uint16_t countLedBlink = 0;
 
     if(isConnect == true)
     {
@@ -586,16 +604,20 @@ void PEGremsy_BLE::process(void)
                 case 0/* constant-expression */:
                     /* code */
                 {
+                    static bool sendFirstJigStatus = false;
+
                     if(millis() - timeSimulation > 1000)
                     {
                         timeSimulation = millis();
 
                         simulationCount++;
 
+                        sendFirstJigStatus = false;
+
                         Serial.printf("count : %d\n", simulationCount);
                     }
 
-                    if(simulationCount >= 6)
+                    if(simulationCount >= 4)
                     {
                         simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
                         simulation_ble.si_ProductStatus = JIG_STATUS_A_PRODUCT_ATTACHED;
@@ -606,6 +628,15 @@ void PEGremsy_BLE::process(void)
                         simulationCount = 0;
 
                         simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+
+                        /// set flag jig status
+                        flagSendJigStatus = true;
+
+                        /// set flag product on status
+                        flagSendProductOnJigStatus = true;
+
+                        /// reset variables send first
+                        sendFirstJigStatus = false;
 
                         Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
                         simulation_ble.state,
@@ -619,13 +650,28 @@ void PEGremsy_BLE::process(void)
                     }
                     else
                     {
-                        simulation_ble.si_JigStatus = JIG_STATUS_ERROR;
-                        simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
+                        if(sendFirstJigStatus == false)
+                        {
+                            sendFirstJigStatus = true;
+
+                            simulation_ble.si_JigStatus = JIG_STATUS_ERROR;
+                            simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
+
+                            /// set flag jig status
+                            flagSendJigStatus = true;
+
+                            /// set flag product on status
+                            flagSendProductOnJigStatus = true;
+
+                            /// set flag send jig qcMode
+                            flagSendJigQcMode = true;
+                        }
                     }
                 }break;
                 case 1 :
                 {
                     static uint8_t simulationQcMode = 1;
+                    static bool randomResult = false;
                     simulation_ble.si_JigControl = management.getJigControl();
 
                     if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
@@ -636,6 +682,13 @@ void PEGremsy_BLE::process(void)
                             simulation_ble.state = 0;
 
                             memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                            /// send jig Control
+                            flagSendJigControl = true;
+
+                            /// send jig Control
+                            // send_jigControl();
+                            // delay(5);
                         }
 
                         timeSimulation = 0;
@@ -644,10 +697,24 @@ void PEGremsy_BLE::process(void)
                     }
                     else if(simulation_ble.si_JigControl == JIG_CONTROL_START || simulation_ble.si_JigControl == JIG_CONTROL_RESUME)
                     {
-                        
+                        static bool sendFirstJigStatusRunning = false;
 
                         simulation_ble.si_ProductOnJigTestStatus = PRODUCT_RUNNING;
                         simulation_ble.si_JigStatus = JIG_STATUS_RUNNING;
+
+                        if(sendFirstJigStatusRunning == false)
+                        {
+                            sendFirstJigStatusRunning = true;
+
+                            /// set flag jig status
+                            flagSendJigStatus = true;
+
+                            /// set flag product on status
+                            flagSendProductOnJigStatus = true;
+
+                            /// set flag send jig control
+                            flagSendJigControl = true;
+                        }
 
                         if(millis() - timeSimulation > 1000)
                         {
@@ -669,33 +736,58 @@ void PEGremsy_BLE::process(void)
                         if(simulationCount == 0)
                         {
                             simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+
+                            /// set flag send qcMode
+                            flagSendJigQcMode = true;
+
+                            simulationCount ++;
                         }
                         else if(simulationCount == 2)
                         {
                             simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
+
+                            /// set flag send qcMode
+                            flagSendJigQcMode = true;
+
+                            simulationCount ++;
                         }
                         else if(simulationCount == 7)
                         {
-                            uint8_t value = random(0, 9);
-                            if(value % 2 == 0)
+                            if(randomResult == false)
                             {
-                                simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_PASSED;
-                            }
-                            else
-                            {
-                                simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_FAILED;
-                            }
-                            
+                                uint8_t value = random(0, 9);
+
+                                randomResult = true;
+
+                                if(value % 2 == 0)
+                                {
+                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+
+                                    /// set flag send qcMode
+                                    flagSendJigQcMode = true;
+                                }
+                                else
+                                {
+                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_FAILED;
+
+                                    /// set flag send qcMode
+                                    flagSendJigQcMode = true;
+                                }
+                            }                          
                         }
                         else if(simulationCount >= 9)
                         {
                             simulationCount = 0;
+                            randomResult = false;
                             simulationQcMode ++;
 
-                            simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
-                        }
+                            // simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
 
-                        simulation_ble.si_QcMode = (JigTestQcMode_t)simulationQcMode;
+                            simulation_ble.si_QcMode = (JigTestQcMode_t)simulationQcMode;
+
+                             /// set flag send qcMode
+                            flagSendJigQcMode = true;
+                        }
 
                         if(simulationQcMode >= 8)
                         {
@@ -707,6 +799,9 @@ void PEGremsy_BLE::process(void)
                             simulationCount = 0;
 
                             simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
+
+                            /// set flag send product On status
+                            flagSendProductOnJigStatus = true;
                         }
                     }
                     else if(simulation_ble.si_JigControl == JIG_CONTROL_PAUSE)
@@ -718,6 +813,13 @@ void PEGremsy_BLE::process(void)
                             timePause = millis();
 
                             Serial.println("JIG_CONTROL_PAUSE");
+
+                            /// set flag send control
+                            flagSendJigControl = true;
+
+                            /// send jig Control
+                            // send_jigControl();
+                            // delay(5);
                         }                       
                     }
                 }break;
@@ -737,12 +839,13 @@ void PEGremsy_BLE::process(void)
 
                     if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
                     {
-
                         /// next state
                         simulation_ble.state = 0;
 
                         memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
                         
+                        /// set flag send control
+                        flagSendJigControl = true;
 
                         timeSimulation = 0;
                         simulationCount = 0;
@@ -755,14 +858,19 @@ void PEGremsy_BLE::process(void)
             }
         #endif
 
-        if(millis() - timeSequence > 100)
+        if(millis() - timeSequence > 50)
         {
             timeSequence = millis();
             
-            digitalWrite(22, state);
+            if(++countLedBlink > 10)
+            {
+                countLedBlink = 0;
 
-            state = !state;
+                digitalWrite(22, state);
 
+                state = !state;
+            }
+        
             /// send Characteristics jigStatus
             send_jigStatus(true);
 
@@ -773,11 +881,7 @@ void PEGremsy_BLE::process(void)
             send_jigQcMode(true);
 
             /// send Characteristics jigControl
-            jigControl_t control = management.getJigControl();
-            uint8_t controlBuffer[1] = {(uint8_t)control};
-
-            send_jigControl(controlBuffer);
-
+            send_jigControl();
         }
     }
 }

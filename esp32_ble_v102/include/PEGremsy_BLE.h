@@ -103,6 +103,12 @@ class PEGremsy_BLE
 		virtual ~PEGremsy_BLE();
 
 	private:
+
+		bool flagSendJigStatus;
+		bool flagSendProductOnJigStatus;
+		bool flagSendJigQcMode;
+		bool flagSendJigControl;
+
 		void CharacteristicsJigStatus_Initialize(BLEServer* pServer);
 		void CharacteristicsMavlink_Initialize(BLEServer* pServer);
 		void CharacteristicsDeviceInfo_Initialize(BLEServer* pServer);
@@ -223,7 +229,7 @@ class PEGremsy_BLE
 		void send_jigStatus(bool Notify);
 		void send_ProductOnJigStatus(bool Notify);
 		void send_jigQcMode(bool Notify);
-		void send_jigControl(uint8_t* buff);
+		void send_jigControl(void);
 };
 /* Exported constants --------------------------------------------------------*/
 
