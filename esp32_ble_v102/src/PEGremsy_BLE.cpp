@@ -52,8 +52,8 @@
 #define MANUFACTURER            "GREMSY"
 #define MODEL_NUMBER            "JIGT3-VN"
 #define SERIAL_NUMBER           "JT3-7E5-A-001"
-#define FIRMWARE_VERSION        "1.0.211029"
-#define HARDWARE_VERSION        "1.0.211001"
+#define FIRMWARE_VERSION        "0.1.21110101"
+#define HARDWARE_VERSION        "0.1.21110102"
 
 #define BLE_DIS_VENDOR_ID_SRC_BLUETOOTH_SIG  0x01
 #define BLE_DIS_VENDOR_ID_LSB                0x63
@@ -106,8 +106,10 @@ DEVICE_MODEL
 };
 
 bool isConnect;
+bool oldDeviceConnected;
 
 size_t BLE_address[2];
+char deviceName[100];
 
 extern mavlinkHandle_t mavlink;
 extern taskManagement_t management;
@@ -157,10 +159,14 @@ class CallbackConnect: public BLEServerCallbacks {
      * This function will be called when device connect
      */
     void onConnect(BLEServer *pBLEServer) {
+        char address[6];
+
         ESP_LOGI(TAG,"Connected");
         ESP_LOGI(TAG,"Connected Id %d - Count %d \n", pBLEServer->getConnId(), pBLEServer->getConnectedCount());
 
-        Serial1.println("[     BLE     ] : Connected Id :" + String(pBLEServer->getConnId()) + " - Count :" + String(pBLEServer->getConnectedCount()));
+        BLEAddress addr = BLEDevice::getAddress();
+
+        Serial.printf("[     BLE     ] : Connected Id : %s | Count : %d\n", addr.toString().c_str(), pBLEServer->getConnectedCount());
 
         if (pBLEServer->getConnectedCount() < 1) {
             BLEDevice::startAdvertising();
@@ -205,6 +211,16 @@ class writeCallbacks: public BLECharacteristicCallbacks
         Serial.println();
         Serial.println("*********");
       }
+    }
+};
+
+/** @brief AdvertisedDeviceCallbacks
+    @return
+*/
+class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
+    void onResult(BLEAdvertisedDevice advertisedDevice) {
+      memcpy(deviceName, advertisedDevice.toString().c_str(), advertisedDevice.toString().length());
+      Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
     }
 };
 
@@ -346,6 +362,26 @@ void PEGremsy_BLE::CharacteristicsDeviceInfo_Initialize(BLEServer* pServer)
     // pCharacterPnPId->setValue(PnPData, 7);
 }
 
+/** @brief  scan BLE Device
+    @return none
+*/
+void PEGremsy_BLE::enableScanDevice(void)
+{
+  BLEScan* pBLEScan;
+
+  pBLEScan = BLEDevice::getScan(); //create new scan
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99);  // less or equal setInterval value   
+
+  BLEScanResults foundDevices = pBLEScan->start(5, false); // 5s
+  Serial.print("Devices found: ");
+  Serial.println(foundDevices.getCount());
+  Serial.println("Scan done!");
+  pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
+}
+
 /** @brief  initialize
     @return none
 */
@@ -384,6 +420,8 @@ void PEGremsy_BLE::initialize(void)
 
         ESP.restart();
     }
+
+    // enableScanDevice();
 
     /// set power
     BLEDevice::setPower(ESP_PWR_LVL_P9, ESP_BLE_PWR_TYPE_ADV);
@@ -598,6 +636,8 @@ void PEGremsy_BLE::process(void)
 
             static uint32_t timeSimulation = 0;
             static uint8_t simulationCount = 0;
+            static bool firstRun = false;
+            static bool modeError = false;
 
             switch (simulation_ble.state)
             {
@@ -627,7 +667,11 @@ void PEGremsy_BLE::process(void)
                         timeSimulation = 0;
                         simulationCount = 0;
 
-                        simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+                        if(firstRun == false)
+                        {
+                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+                        }
+                        
 
                         /// set flag jig status
                         flagSendJigStatus = true;
@@ -670,7 +714,7 @@ void PEGremsy_BLE::process(void)
                 }break;
                 case 1 :
                 {
-                    static uint8_t simulationQcMode = 1;
+                    static uint8_t simulationQcMode = 0;
                     static bool randomResult = false;
                     simulation_ble.si_JigControl = management.getJigControl();
 
@@ -693,11 +737,12 @@ void PEGremsy_BLE::process(void)
 
                         timeSimulation = 0;
                         simulationCount = 0;
-                        simulationQcMode = 1;
+                        simulationQcMode = 0;
                     }
                     else if(simulation_ble.si_JigControl == JIG_CONTROL_START || simulation_ble.si_JigControl == JIG_CONTROL_RESUME)
                     {
                         static bool sendFirstJigStatusRunning = false;
+                        
 
                         simulation_ble.si_ProductOnJigTestStatus = PRODUCT_RUNNING;
                         simulation_ble.si_JigStatus = JIG_STATUS_RUNNING;
@@ -735,8 +780,15 @@ void PEGremsy_BLE::process(void)
 
                         if(simulationCount == 0)
                         {
-                            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+                            if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                            {
 
+                            }
+                            else
+                            {
+                                simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+                            }
+                        
                             /// set flag send qcMode
                             flagSendJigQcMode = true;
 
@@ -744,7 +796,15 @@ void PEGremsy_BLE::process(void)
                         }
                         else if(simulationCount == 2)
                         {
-                            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
+                            if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                            {
+
+                            }
+                            else
+                            {
+                                simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
+                            }
+                            
 
                             /// set flag send qcMode
                             flagSendJigQcMode = true;
@@ -761,15 +821,31 @@ void PEGremsy_BLE::process(void)
 
                                 if(value % 2 == 0)
                                 {
-                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+                                    if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                                    {
 
+                                    }
+                                    else
+                                    {
+                                        simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+                                    }
+                                    
                                     /// set flag send qcMode
                                     flagSendJigQcMode = true;
                                 }
                                 else
                                 {
-                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_FAILED;
+                                    if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                                    {
 
+                                    }
+                                    else
+                                    {
+                                        simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_FAILED;
+
+                                        modeError = true;
+                                    }
+                                    
                                     /// set flag send qcMode
                                     flagSendJigQcMode = true;
                                 }
@@ -787,6 +863,8 @@ void PEGremsy_BLE::process(void)
 
                              /// set flag send qcMode
                             flagSendJigQcMode = true;
+
+                            sendFirstJigStatusRunning = false;
                         }
 
                         if(simulationQcMode >= 8)
@@ -798,7 +876,15 @@ void PEGremsy_BLE::process(void)
                             timeSimulation = 0;
                             simulationCount = 0;
 
-                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
+                            if(modeError == true)
+                            {
+                                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_FAIL;
+                            }
+                            else
+                            {
+                                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
+                            }
+                            
 
                             /// set flag send product On status
                             flagSendProductOnJigStatus = true;
@@ -827,12 +913,35 @@ void PEGremsy_BLE::process(void)
                 {
 
                     static uint32_t timePause = 0;
+                    static uint8_t countAutoBackjigStatus_standby = 0;
 
                     if(millis() - timePause > 1000)
                     {
                         timePause = millis();
+                        if(++countAutoBackjigStatus_standby > 3)
+                        {
+                            countAutoBackjigStatus_standby = 0;
+                            Serial.println("jigStatus Back to standby");
 
-                        Serial.printf("state : %d\n", simulation_ble.state);
+                            /// next state
+                            simulation_ble.state = 0;
+
+                            memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                            timeSimulation = 0;
+                            simulationCount = 0;
+
+                            simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+
+                            /// set flag send jig Status
+                            flagSendJigStatus = true;
+
+                            management.JigControlBuffer[0] = 0x00;
+
+                            firstRun = true;
+                        }
+
+                        Serial.printf("state : %d | countBackToStandby : %d\n", simulation_ble.state, countAutoBackjigStatus_standby);
                     } 
 
                     simulation_ble.si_JigControl = management.getJigControl();
@@ -843,6 +952,15 @@ void PEGremsy_BLE::process(void)
                         simulation_ble.state = 0;
 
                         memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                        if(modeError == true)
+                        {
+                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_FAIL;
+                        }
+                        else
+                        {
+                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
+                        }
                         
                         /// set flag send control
                         flagSendJigControl = true;
@@ -884,7 +1002,21 @@ void PEGremsy_BLE::process(void)
             send_jigControl();
         }
     }
+
+    // disconnecting
+    if (!isConnect && oldDeviceConnected) {
+        delay(500); // give the bluetooth stack the chance to get things ready
+        BLEDevice::startAdvertising(); // restart advertising
+        Serial.println("restart advertising");
+        oldDeviceConnected = isConnect;
+    }
+    // connecting
+    if (isConnect && !oldDeviceConnected) {
+        // do stuff here on connecting
+        oldDeviceConnected = isConnect;
+    }
 }
+
 
 #endif
 /**

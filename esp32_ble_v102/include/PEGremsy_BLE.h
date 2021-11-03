@@ -109,6 +109,8 @@ class PEGremsy_BLE
 		bool flagSendJigQcMode;
 		bool flagSendJigControl;
 
+		void enableScanDevice(void);
+
 		void CharacteristicsJigStatus_Initialize(BLEServer* pServer);
 		void CharacteristicsMavlink_Initialize(BLEServer* pServer);
 		void CharacteristicsDeviceInfo_Initialize(BLEServer* pServer);
