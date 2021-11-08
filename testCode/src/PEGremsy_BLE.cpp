@@ -3,7 +3,7 @@
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
 #include <EEPROM.h>
-
+#include "gimbalParam.h"
 
 /*
  * Battery Service
@@ -19,6 +19,7 @@
 #define BLE_UUID_PRODUCT_ON_JIG_STATUS_CHAR     "0A630102-47B5-4779-8699-054D0879FC69"
 #define BLE_UUID_JIG_QC_MODE_CHAR               "0A630103-47B5-4779-8699-054D0879FC69"
 #define BLE_UUID_JIG_CONTROL_CHAR               "0A630104-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_PRODUCT_PROFILE_CHAR           "0A630105-47B5-4779-8699-054D0879FC69"
 
 /*
  * heartbeat Service
@@ -80,6 +81,7 @@ typedef struct
     JigTestQcMode_t si_QcMode;
     JigTestQcModeStatus_t si_QcModeStatus;
     jigControl_t si_JigControl;
+    bool deviceDisconnected;
 
 }bleProfileSimulation_t;
 
@@ -191,20 +193,34 @@ class writeCallbacks: public BLECharacteristicCallbacks
       if (value.length() > 0)
       {
         Serial.println("*********");
-        Serial.print("New value: ");
+        
 
         BLEUUID jigCharUuId = BLEUUID(BLE_UUID_JIG_CONTROL_CHAR);
+        BLEUUID productProfile = BLEUUID(BLE_UUID_PRODUCT_PROFILE_CHAR);
         BLEUUID UuIdGet = pCharacteristic->getUUID();
 
         if(UuIdGet.equals(jigCharUuId) == true)
         {
+            Serial.print("BLE_UUID_JIG_CONTROL_CHAR - ");
+            Serial.print("New value: ");
             for (int i = 0; i < value.length(); i++)
             {
                 PEGremsy_BLE_getRecieverBuffer(value.length(), 1, management.JigControlBuffer, value, i);
                 
                 Serial.print(management.JigControlBuffer[i], HEX);
-                Serial.println("");
-                Serial.print(value[i], HEX);
+                // Serial.println("");
+                // Serial.print(value[i], HEX);
+            }
+        }
+        else if(UuIdGet.equals(productProfile) == true)
+        {
+            Serial.print("BLE_UUID_PRODUCT_PROFILE_CHAR - ");
+            Serial.print("New value: ");
+            for (int i = 0; i < value.length(); i++)
+            {
+                PEGremsy_BLE_getRecieverBuffer(value.length(), 1, management.productProfileBuffer, value, i);
+                
+                Serial.print(management.productProfileBuffer[i], HEX);
             }
         }
 
@@ -292,6 +308,11 @@ void PEGremsy_BLE::CharacteristicsJigStatus_Initialize(BLEServer* pServer)
 
     /// set write callBack
     pCharacteristicsJigControl->setCallbacks(new writeCallbacks());
+
+    /// create product profile Characteristis
+    pCharacteristicsProductProfile      = pJIGTESTService->createCharacteristic(BLE_UUID_PRODUCT_PROFILE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+    /// set write callBack
+    pCharacteristicsProductProfile->setCallbacks(new writeCallbacks());
 
     /// start jigtest service
     pJIGTESTService->start();
@@ -619,6 +640,26 @@ void PEGremsy_BLE::send_jigControl(void)
     // pCharacteristicsJigControl->setValue(controlBuffer, 1); 
 }
 
+/** @brief  send_jigControl
+    @return none
+*/
+void PEGremsy_BLE::send_productProfile(void)
+{
+    uint8_t value = (uint8_t)gimbalParam_valueTestPixy[management.productProfileBuffer[0]].value;
+    uint8_t productProfileBuffer[2] = {1, value};
+
+    if(flagSendProductProfile == true)
+    {
+        flagSendProductProfile = false;
+
+        /// delete reciver buffer
+        management.productProfileBuffer[0] = 0;
+
+        Serial.printf("[send_productProfile] value : %d", value);
+
+        pCharacteristicsProductProfile->setValue(productProfileBuffer, 2);
+    }
+}
 /** @brief  process
     @return none
 */
@@ -646,21 +687,82 @@ void PEGremsy_BLE::process(void)
                 {
                     static bool sendFirstJigStatus = false;
 
-                    if(millis() - timeSimulation > 1000)
+                    if(simulation_ble.deviceDisconnected == false)
                     {
-                        timeSimulation = millis();
+                        if(millis() - timeSimulation > 1000)
+                        {
+                            timeSimulation = millis();
 
-                        simulationCount++;
+                            simulationCount++;
 
-                        sendFirstJigStatus = false;
+                            sendFirstJigStatus = false;
 
-                        Serial.printf("count : %d\n", simulationCount);
+                            Serial.printf("count : %d\n", simulationCount);
+                        }
+
+                        if(simulationCount >= 4)
+                        {
+                            simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+                            simulation_ble.si_ProductStatus = JIG_STATUS_A_PRODUCT_ATTACHED;
+
+                            /// next state
+                            simulation_ble.state = 1;
+                            timeSimulation = 0;
+                            simulationCount = 0;
+
+                            if(firstRun == false)
+                            {
+                                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+                            }
+                            
+
+                            /// set flag jig status
+                            flagSendJigStatus = true;
+
+                            /// set flag product on status
+                            flagSendProductOnJigStatus = true;
+
+                            /// reset variables send first
+                            sendFirstJigStatus = false;
+
+                            Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
+                            simulation_ble.state,
+                            simulation_ble.si_JigStatus,
+                            simulation_ble.si_ProductStatus,
+                            simulation_ble.si_ProductOnJigTestStatus,
+                            simulation_ble.si_QcMode,
+                            simulation_ble.si_QcModeStatus,
+                            simulation_ble.si_JigControl
+                            );
+                        }
+                        else
+                        {
+                            if(sendFirstJigStatus == false)
+                            {
+                                sendFirstJigStatus = true;
+
+                                simulation_ble.si_JigStatus = JIG_STATUS_ERROR;
+                                simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
+
+                                /// set flag jig status
+                                flagSendJigStatus = true;
+
+                                /// set flag product on status
+                                flagSendProductOnJigStatus = true;
+
+                                /// set flag send jig qcMode
+                                flagSendJigQcMode = true;
+                            }
+                        }
                     }
-
-                    if(simulationCount >= 4)
+                    else
                     {
+                        simulation_ble.deviceDisconnected = false;
+
                         simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
                         simulation_ble.si_ProductStatus = JIG_STATUS_A_PRODUCT_ATTACHED;
+
+                        delay(2000);
 
                         /// next state
                         simulation_ble.state = 1;
@@ -672,7 +774,6 @@ void PEGremsy_BLE::process(void)
                             simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
                         }
                         
-
                         /// set flag jig status
                         flagSendJigStatus = true;
 
@@ -682,7 +783,7 @@ void PEGremsy_BLE::process(void)
                         /// reset variables send first
                         sendFirstJigStatus = false;
 
-                        Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
+                        Serial.printf("reConnect state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
                         simulation_ble.state,
                         simulation_ble.si_JigStatus,
                         simulation_ble.si_ProductStatus,
@@ -692,30 +793,52 @@ void PEGremsy_BLE::process(void)
                         simulation_ble.si_JigControl
                         );
                     }
-                    else
-                    {
-                        if(sendFirstJigStatus == false)
-                        {
-                            sendFirstJigStatus = true;
-
-                            simulation_ble.si_JigStatus = JIG_STATUS_ERROR;
-                            simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
-
-                            /// set flag jig status
-                            flagSendJigStatus = true;
-
-                            /// set flag product on status
-                            flagSendProductOnJigStatus = true;
-
-                            /// set flag send jig qcMode
-                            flagSendJigQcMode = true;
-                        }
-                    }
                 }break;
                 case 1 :
                 {
                     static uint8_t simulationQcMode = 0;
                     static bool randomResult = false;
+                    
+
+                    /// enable send product Profile
+                    if((uint8_t)simulation_ble.si_ProductOnJigTestStatus > 1)
+                    {
+                        switch (management.productProfileBuffer[0])
+                        {
+                            case 1:
+                            {
+                                flagSendProductProfile = true;
+
+                                // uint8_t value = (uint8_t)gimbal_param_setting[management.productProfileBuffer[0]].value;
+                                // uint8_t productProfileBuffer[2] = {1, value};
+
+                                // Serial.printf("[send_productProfile] value : %d", value);
+
+                                // pCharacteristicsProductProfile->setValue(productProfileBuffer, 2);
+
+                                // /// delete reciver buffer
+                                // management.productProfileBuffer[0] = 0;
+                            }break;
+                            case 2:
+                            {
+                                flagSendProductProfile = true;
+
+                                // uint8_t value = (uint8_t)gimbal_param_setting[management.productProfileBuffer[0]].value;
+                                // uint8_t productProfileBuffer[2] = {1, value};
+
+                                // Serial.printf("[send_productProfile] value : %d", value);
+
+                                // pCharacteristicsProductProfile->setValue(productProfileBuffer, 2);
+
+                                // /// delete reciver buffer
+                                // management.productProfileBuffer[0] = 0;
+                            }break;
+                            
+                            default:
+                                break;
+                        }
+                    }
+
                     simulation_ble.si_JigControl = management.getJigControl();
 
                     if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
@@ -915,6 +1038,14 @@ void PEGremsy_BLE::process(void)
                     static uint32_t timePause = 0;
                     static uint8_t countAutoBackjigStatus_standby = 0;
 
+                    if(simulation_ble.deviceDisconnected == true)
+                    {
+                        simulation_ble.deviceDisconnected = false;
+
+                        timePause = 0;
+                        countAutoBackjigStatus_standby = 0;
+                    }
+
                     if(millis() - timePause > 1000)
                     {
                         timePause = millis();
@@ -969,6 +1100,8 @@ void PEGremsy_BLE::process(void)
                         simulationCount = 0;
                         
                     }
+
+
                 }break;
                 
                 default:
@@ -1000,6 +1133,9 @@ void PEGremsy_BLE::process(void)
 
             /// send Characteristics jigControl
             send_jigControl();
+
+            /// send product profile
+            send_productProfile();
         }
     }
 
@@ -1009,6 +1145,22 @@ void PEGremsy_BLE::process(void)
         BLEDevice::startAdvertising(); // restart advertising
         Serial.println("restart advertising");
         oldDeviceConnected = isConnect;
+
+        /// set flag device disconnect
+        simulation_ble.deviceDisconnected = true;
+
+        /// delete all jig result & process
+        // memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+        simulation_ble.si_JigControl = JIG_CONTROL_STOP;
+        simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+        simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+        simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
+        simulation_ble.si_QcMode = JIG_QC_MODE_IDLE;
+        simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+        simulation_ble.state = 0;
+
+        /// xoa buffer control
+        management.JigControlBuffer[0] = 0x00;
     }
     // connecting
     if (isConnect && !oldDeviceConnected) {

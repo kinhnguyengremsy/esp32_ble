@@ -80,6 +80,7 @@ class PEGremsy_BLE
 		BLECharacteristic 	*pCharacteristicsProductOnJigStatus;
 		BLECharacteristic 	*pCharacteristicsJigQcMode;
 		BLECharacteristic 	*pCharacteristicsJigControl;
+		BLECharacteristic 	*pCharacteristicsProductProfile;
 
 		/*
 		 * Characteristics for mavlink
@@ -108,6 +109,7 @@ class PEGremsy_BLE
 		bool flagSendProductOnJigStatus;
 		bool flagSendJigQcMode;
 		bool flagSendJigControl;
+		bool flagSendProductProfile;
 
 		void enableScanDevice(void);
 
@@ -232,6 +234,7 @@ class PEGremsy_BLE
 		void send_ProductOnJigStatus(bool Notify);
 		void send_jigQcMode(bool Notify);
 		void send_jigControl(void);
+		void send_productProfile(void);
 };
 /* Exported constants --------------------------------------------------------*/
 

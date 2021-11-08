@@ -92,6 +92,7 @@ class taskManagement_t
   public:
 
     uint8_t JigControlBuffer[1];
+    uint8_t productProfileBuffer[1];
 
     bool jigReady;
     bool productReady;
