@@ -93,9 +93,11 @@ class taskManagement_t
 
     uint8_t JigControlBuffer[1];
     uint8_t productProfileBuffer[1];
+    uint8_t countDeviceConnected;
 
     bool jigReady;
     bool productReady;
+    bool oldDeviceConnected;
 
     ProductOnJigTestStatus_t  productOnState;
     JigTestQcModeStatus_t     qcModeStatus;
