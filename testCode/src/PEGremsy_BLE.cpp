@@ -85,6 +85,8 @@ typedef struct
 
 }bleProfileSimulation_t;
 
+float bleProductProfile_simulation[6] = {10, 50, -50, -90, 25, -45};
+
 
 /* Private macro------------------------------------------------------------------------------*/
 /* Private variables------------------------------------------------------------------------------*/
@@ -248,6 +250,42 @@ class writeCallbacks: public BLECharacteristicCallbacks
         Serial.println();
         Serial.println("*********");
       }
+    }
+
+    void onRead	(BLECharacteristic *pCharacteristic)	
+    {
+        BLEUUID jigCharUuId = BLEUUID(BLE_UUID_JIG_CONTROL_CHAR);
+        BLEUUID productProfile = BLEUUID(BLE_UUID_PRODUCT_PROFILE_CHAR);
+        BLEUUID UuIdGet = pCharacteristic->getUUID();
+
+        if(UuIdGet.equals(jigCharUuId) == true)
+        {
+            uint8_t *pData = pCharacteristic->getData();
+            uint8_t data = 0;
+            memcpy(&data, pData, 1);
+
+            Serial.print("BLE_UUID_JIG_CONTROL_CHAR - ");
+            Serial.printf("onRead : %d\n", data);
+        }
+        else if(UuIdGet.equals(productProfile) == true)
+        {
+            uint8_t *pData = pCharacteristic->getData();
+            uint8_t data[4] = {0, 0};
+            memcpy(data, pData, 4);
+    
+            float value = ConvertHex2ToFloat(data);
+
+            for(uint8_t i = 0; i < 5; i++)
+            {
+                if(value == bleProductProfile_simulation[management.productProfileBuffer[0]])
+                {
+                    management.appOnRead = true;
+                }
+            }
+
+            Serial.print("BLE_UUID_PRODUCT_PROFILE_CHAR - ");
+            Serial.printf("onRead : %.0f\n", value);
+        }       
     }
 };
 
@@ -593,6 +631,8 @@ void PEGremsy_BLE::send_jigStatus(bool Notify)
 
         pCharacteristicsJigStatus->setValue(jigStatusBuffer, 2);
         pCharacteristicsJigStatus->notify(true);
+
+        Serial.println("send jig status");
     }
 }
 
@@ -616,6 +656,8 @@ void PEGremsy_BLE::send_ProductOnJigStatus(bool Notify)
 
         pCharacteristicsProductOnJigStatus->setValue(productOnStatusBuffer, 1);
         pCharacteristicsProductOnJigStatus->notify(true);
+
+        Serial.println("send product on status");
     }
 }
 
@@ -642,6 +684,8 @@ void PEGremsy_BLE::send_jigQcMode(bool Notify)
 
         pCharacteristicsJigQcMode->setValue(qcModeBuffer, 2);
         pCharacteristicsJigQcMode->notify(true);
+
+        Serial.println("send jig Qc mode");
     }
 }
 
@@ -668,8 +712,7 @@ void PEGremsy_BLE::send_jigControl(void)
 */
 void PEGremsy_BLE::send_productProfile(void)
 {
-    uint8_t value = (uint8_t)gimbalParam_valueTestPixy[management.productProfileBuffer[0]].value;
-    uint8_t productProfileBuffer[2] = {1, value};
+    float value = bleProductProfile_simulation[management.productProfileBuffer[0]];
 
     if(flagSendProductProfile == true)
     {
@@ -678,9 +721,9 @@ void PEGremsy_BLE::send_productProfile(void)
         /// delete receiver buffer
         management.productProfileBuffer[0] = 0;
 
-        Serial.printf("[send_productProfile] value : %d", value);
+        Serial.printf("[send_productProfile] value : %.f\n", value);
 
-        pCharacteristicsProductProfile->setValue(productProfileBuffer, 2);
+        pCharacteristicsProductProfile->setValue(value);
     }
 }
 /** @brief  process
@@ -714,6 +757,16 @@ void PEGremsy_BLE::process(void)
 
                 /// xoa buffer control
                 management.JigControlBuffer[0] = 0x00;
+            }
+            else
+            {
+                /// set flag jig status
+                flagSendJigStatus = true;
+
+                /// set flag product on status
+                flagSendProductOnJigStatus = true;
+
+                delay(1000);
             }
         }
         else
@@ -805,25 +858,41 @@ void PEGremsy_BLE::process(void)
                         
 
                         /// enable send product Profile
-                        if((uint8_t)simulation_ble.si_ProductOnJigTestStatus > 1)
-                        {
-                            switch (management.productProfileBuffer[0])
-                            {
-                                case 1:
-                                {
-                                    flagSendProductProfile = true;
+                        // if((uint8_t)simulation_ble.si_ProductOnJigTestStatus > 1)
+                        // {
+                        //     switch (management.productProfileBuffer[0])
+                        //     {
+                        //         case 1:
+                        //         {
+                        //             flagSendProductProfile = true;
+                                    
 
-                                }break;
-                                case 2:
-                                {
-                                    flagSendProductProfile = true;
+                        //         }break;
+                        //         case 2:
+                        //         {
+                        //             flagSendProductProfile = management.appOnRead ? false : true;
 
-                                }break;
+                        //         }break;
+                        //         case 3:
+                        //         {
+                        //             flagSendProductProfile = management.appOnRead ? true : false;
+
+                        //         }break;
+                        //         case 4:
+                        //         {
+                        //             flagSendProductProfile = management.appOnRead ? true : false;
+
+                        //         }break;
+                        //         case 5:
+                        //         {
+                        //             flagSendProductProfile = management.appOnRead ? true : false;
+
+                        //         }break;
                                 
-                                default:
-                                    break;
-                            }
-                        }
+                        //         default:
+                        //             break;
+                        //     }
+                        // }
 
                         simulation_ble.si_JigControl = management.getJigControl();
 
@@ -1023,34 +1092,80 @@ void PEGremsy_BLE::process(void)
 
                         static uint32_t timePause = 0;
                         static uint8_t countAutoBackjigStatus_standby = 0;
+                        static bool enableBackToStanby = false;
 
-                        if(millis() - timePause > 1000)
+                        /// enable send product Profile
+
+                        switch (management.productProfileBuffer[0])
                         {
-                            timePause = millis();
-                            if(++countAutoBackjigStatus_standby > 3)
+                            case 1:
                             {
-                                countAutoBackjigStatus_standby = 0;
-                                Serial.println("jigStatus Back to standby");
+                                flagSendProductProfile = true;
+                                
 
-                                /// next state
-                                simulation_ble.state = 0;
+                            }break;
+                            case 2:
+                            {
+                                // flagSendProductProfile = true;
+                                flagSendProductProfile = management.appOnRead ? false : true;
 
-                                memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+                            }break;
+                            case 3:
+                            {
+                                // flagSendProductProfile = true;
+                                flagSendProductProfile = management.appOnRead ? false : true;
 
-                                timeSimulation = 0;
-                                simulationCount = 0;
+                            }break;
+                            case 4:
+                            {
+                                // flagSendProductProfile = true;
+                                flagSendProductProfile = management.appOnRead ? false : true;
 
-                                simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+                            }break;
+                            case 5:
+                            {
+                                // flagSendProductProfile = true;
+                                flagSendProductProfile = management.appOnRead ? false : true;
+                                enableBackToStanby = management.appOnRead ? false : true;
 
-                                /// set flag send jig Status
-                                flagSendJigStatus = true;
+                            }break;
+                            
+                            default:
+                                break;
+                        }
+                        
+                        if(enableBackToStanby == true)
+                        {
+                            if(millis() - timePause > 1000)
+                            {
+                                timePause = millis();
+                                if(++countAutoBackjigStatus_standby > 3)
+                                {
+                                    enableBackToStanby = false;
 
-                                management.JigControlBuffer[0] = 0x00;
+                                    countAutoBackjigStatus_standby = 0;
+                                    Serial.println("jigStatus Back to standby");
 
-                                firstRun = true;
+                                    /// next state
+                                    simulation_ble.state = 0;
+
+                                    memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                                    timeSimulation = 0;
+                                    simulationCount = 0;
+
+                                    simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+
+                                    /// set flag send jig Status
+                                    flagSendJigStatus = true;
+
+                                    management.JigControlBuffer[0] = 0x00;
+
+                                    firstRun = true;
+                                }
+
+                                Serial.printf("state : %d | countBackToStandby : %d\n", simulation_ble.state, countAutoBackjigStatus_standby);
                             }
-
-                            Serial.printf("state : %d | countBackToStandby : %d\n", simulation_ble.state, countAutoBackjigStatus_standby);
                         } 
 
                         simulation_ble.si_JigControl = management.getJigControl();

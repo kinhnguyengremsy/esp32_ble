@@ -98,6 +98,7 @@ class taskManagement_t
     bool jigReady;
     bool productReady;
     bool oldDeviceConnected;
+    bool appOnRead;
 
     ProductOnJigTestStatus_t  productOnState;
     JigTestQcModeStatus_t     qcModeStatus;
