@@ -97,7 +97,8 @@ class taskManagement_t
 
     bool jigReady;
     bool productReady;
-    bool oldDeviceConnected;
+    bool deviceDisconnected;
+    uint8_t oldDeviceConnected;
     bool appOnRead;
 
     ProductOnJigTestStatus_t  productOnState;

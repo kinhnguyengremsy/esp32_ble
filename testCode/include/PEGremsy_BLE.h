@@ -80,7 +80,6 @@ class PEGremsy_BLE
 		BLECharacteristic 	*pCharacteristicsProductOnJigStatus;
 		BLECharacteristic 	*pCharacteristicsJigQcMode;
 		BLECharacteristic 	*pCharacteristicsJigControl;
-		BLECharacteristic 	*pCharacteristicsProductProfile;
 
 		/*
 		 * Characteristics for mavlink
@@ -91,6 +90,11 @@ class PEGremsy_BLE
 		BLECharacteristic 	*pCharacteristicsParamValue;
 
 		BLECharacteristic 	*pCharacteristicsRawImu;
+
+		/*
+		 * Characteristics for product
+		 * */
+		BLECharacteristic 	*pCharacteristicsProductProfile;
 
 		void initialize(void);
 
@@ -116,6 +120,9 @@ class PEGremsy_BLE
 		void CharacteristicsJigStatus_Initialize(BLEServer* pServer);
 		void CharacteristicsMavlink_Initialize(BLEServer* pServer);
 		void CharacteristicsDeviceInfo_Initialize(BLEServer* pServer);
+		void CharacteristicsProduct_Initialize(BLEServer* pServer);
+		void simulationProcess(void);
+
 		void send_heartBeatService(mavlink_msg_heartbeat_t *heartbeat, bool Notify)
 		{
 

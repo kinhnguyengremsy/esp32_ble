@@ -19,7 +19,7 @@
 #define BLE_UUID_PRODUCT_ON_JIG_STATUS_CHAR     "0A630102-47B5-4779-8699-054D0879FC69"
 #define BLE_UUID_JIG_QC_MODE_CHAR               "0A630103-47B5-4779-8699-054D0879FC69"
 #define BLE_UUID_JIG_CONTROL_CHAR               "0A630104-47B5-4779-8699-054D0879FC69"
-#define BLE_UUID_PRODUCT_PROFILE_CHAR           "0A630105-47B5-4779-8699-054D0879FC69"
+
 
 /*
  * heartbeat Service
@@ -30,10 +30,10 @@
 #define BLE_UUID_RAWIMU_CHAR					"0A630204-47B5-4779-8699-054D0879FC69"
 
 /*
- * Gimbal Service
+ * product profile Service
  */
-
-
+#define BLE_UUID_PRODUCT_SERVICE				"0A630300-47B5-4779-8699-054D0879FC69"
+#define BLE_UUID_PRODUCT_PROFILE_CHAR           "0A630301-47B5-4779-8699-054D0879FC69"
 /**
  * Information Service
  */
@@ -111,6 +111,7 @@ DEVICE_MODEL
 
 bool isConnect;
 bool oldDeviceConnected;
+bool newControl;
 
 size_t BLE_address[2];
 char deviceName[100];
@@ -151,7 +152,7 @@ class CallbackConnect: public BLEServerCallbacks {
     /*
      * This function will be called when device disconnect
      */
-    void onDisconnect(BLEServer *pBLEServer) {
+    void onDisconnect(BLEServer *pBLEServer){//, esp_ble_gatts_cb_param_t *param) {
         ESP_LOGI(TAG,"Disconnected");
 
         BLEDevice::startAdvertising();
@@ -160,7 +161,17 @@ class CallbackConnect: public BLEServerCallbacks {
 
         isConnect = false;
 
-        management.oldDeviceConnected = false;
+        management.oldDeviceConnected = 3;
+
+        management.deviceDisconnected = true;
+
+        // Serial.printf("disconnected with address : %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n",
+        //     param->connect.remote_bda[0],
+        //     param->connect.remote_bda[1],
+        //     param->connect.remote_bda[2],
+        //     param->connect.remote_bda[3],
+        //     param->connect.remote_bda[4],
+        //     param->connect.remote_bda[5]);
     }
 
     /*
@@ -168,29 +179,32 @@ class CallbackConnect: public BLEServerCallbacks {
      */
     void onConnect(BLEServer *pBLEServer, esp_ble_gatts_cb_param_t *param) {
 
-        
+        /// khi connect dau tien cho la thiet bi moi
+        management.oldDeviceConnected = 1;
+
         for(uint8_t i = 0; i < 1; i++)
         {
+            /// ktra thiet bi moi hay cu
             if(memcmp(bleDevice_MacAddress[i], param->connect.remote_bda, 6) == 0)
             {
-                management.oldDeviceConnected = true;
+                management.oldDeviceConnected = 2;
 
                 Serial.println("old device connected");
             }
         }
 
-        if(management.oldDeviceConnected == false) 
+        if(management.oldDeviceConnected == 1) 
         {
             // management.countDeviceConnected ++;
             memcpy(bleDevice_MacAddress[management.countDeviceConnected], param->connect.remote_bda, 6);
 
-            Serial.printf("address : %.2X:%.2X:%.2X:%.2X:%.2X:%.2X | count : %d\n",
+            Serial.printf("address : %.2X:%.2X:%.2X:%.2X:%.2X:%.2X | connectioId L %4d | count : %d\n",
                 bleDevice_MacAddress[management.countDeviceConnected][0],
                 bleDevice_MacAddress[management.countDeviceConnected][1],
                 bleDevice_MacAddress[management.countDeviceConnected][2],
                 bleDevice_MacAddress[management.countDeviceConnected][3],
                 bleDevice_MacAddress[management.countDeviceConnected][4],
-                bleDevice_MacAddress[management.countDeviceConnected][5], management.countDeviceConnected);
+                bleDevice_MacAddress[management.countDeviceConnected][5], param->connect.conn_id, management.countDeviceConnected);
         }
 
         if (pBLEServer->getConnectedCount() < 1) {
@@ -234,6 +248,8 @@ class writeCallbacks: public BLECharacteristicCallbacks
                 // Serial.println("");
                 // Serial.print(value[i], HEX);
             }
+
+            newControl = true;
         }
         else if(UuIdGet.equals(productProfile) == true)
         {
@@ -277,14 +293,14 @@ class writeCallbacks: public BLECharacteristicCallbacks
 
             for(uint8_t i = 0; i < 5; i++)
             {
-                if(value == bleProductProfile_simulation[management.productProfileBuffer[0]])
+                if(value == bleProductProfile_simulation[i])
                 {
                     management.appOnRead = true;
                 }
             }
 
             Serial.print("BLE_UUID_PRODUCT_PROFILE_CHAR - ");
-            Serial.printf("onRead : %.0f\n", value);
+            Serial.printf("onRead : %.0f | %d\n", value, management.appOnRead);
         }       
     }
 };
@@ -393,6 +409,23 @@ void PEGremsy_BLE::CharacteristicsMavlink_Initialize(BLEServer* pServer)
     pCharacteristicsRawImu = pServiceMavlink->createCharacteristic(BLE_UUID_RAWIMU_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
 
     pServiceMavlink->start();
+}
+
+/** @brief  CharacteristicsJigStatus_Initialize
+    @return none
+*/
+void PEGremsy_BLE::CharacteristicsProduct_Initialize(BLEServer* pServer)
+{
+    /// Create service
+    BLEService *pProductService = pServer->createService(BLE_UUID_PRODUCT_SERVICE);
+
+    /// create product profile Characteristis
+    pCharacteristicsProductProfile      = pProductService->createCharacteristic(BLE_UUID_PRODUCT_PROFILE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+    /// set write callBack
+    pCharacteristicsProductProfile->setCallbacks(new writeCallbacks());
+
+    /// start jigtest service
+    pProductService->start();
 }
 
 /** @brief  CharacteristicsDeviceInfo_Initialize
@@ -544,6 +577,11 @@ void PEGremsy_BLE::initialize(void)
      * Create Info Device Service and Characteristics
      */
     CharacteristicsDeviceInfo_Initialize(pServer);
+
+    /*
+     * Create product Service and Characteristics
+     */
+    CharacteristicsProduct_Initialize(pServer);
 
     // Start advertising
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -721,11 +759,460 @@ void PEGremsy_BLE::send_productProfile(void)
         /// delete receiver buffer
         management.productProfileBuffer[0] = 0;
 
+        /// delete flag onRead
+        management.appOnRead = false;
+
         Serial.printf("[send_productProfile] value : %.f\n", value);
 
         pCharacteristicsProductProfile->setValue(value);
     }
 }
+
+/** @brief  ble simulation process
+    @return none
+*/
+void PEGremsy_BLE::simulationProcess(void)
+{
+    static uint8_t simulationQcMode = 0;
+    
+    if(management.deviceDisconnected == true && isConnect == true)
+    {
+        if(management.oldDeviceConnected == 1) /// thiet bi moi
+        {
+            /// delete all jig result & process
+            simulation_ble.si_JigControl = JIG_CONTROL_STOP;
+            simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+            simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
+            simulation_ble.si_QcMode = JIG_QC_MODE_IDLE;
+            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+            simulation_ble.state = 0;
+
+            simulationQcMode = 0;
+
+            /// xoa buffer control
+            management.JigControlBuffer[0] = 0x00;
+
+            management.deviceDisconnected = false;
+
+            Serial.println("new device --- > reset all availables");
+        }
+        else if(management.oldDeviceConnected == 2) /// thiet bi cu
+        {
+            /// set flag jig status
+            flagSendJigStatus = true;
+
+            /// set flag product on status
+            flagSendProductOnJigStatus = true;
+
+            management.deviceDisconnected = false;
+
+            Serial.println("old device --- > keep stable all availables");
+
+            delay(1000);
+        }
+    }
+
+    #if ( SIMULATION_PROFILE == 1 )
+
+        static uint32_t timeSimulation = 0;
+        static uint8_t simulationCount = 0;
+        static bool firstRun = false;
+        static bool modeError = false;
+
+        switch (simulation_ble.state)
+        {
+            case 0/* constant-expression */:
+                /* code */
+            {
+                static bool sendFirstJigStatus = false;
+
+                if(millis() - timeSimulation > 1000)
+                {
+                    timeSimulation = millis();
+
+                    simulationCount++;
+
+                    sendFirstJigStatus = false;
+
+                    Serial.printf("count : %d\n", simulationCount);
+                }
+
+                if(simulationCount >= 4)
+                {
+                    simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+                    simulation_ble.si_ProductStatus = JIG_STATUS_A_PRODUCT_ATTACHED;
+
+                    /// next state
+                    simulation_ble.state = 1;
+                    timeSimulation = 0;
+                    simulationCount = 0;
+
+                    if(firstRun == false)
+                    {
+                        simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
+                    }
+                    
+
+                    /// set flag jig status
+                    flagSendJigStatus = true;
+
+                    /// set flag product on status
+                    flagSendProductOnJigStatus = true;
+
+                    /// reset variables send first
+                    sendFirstJigStatus = false;
+
+                    Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
+                    simulation_ble.state,
+                    simulation_ble.si_JigStatus,
+                    simulation_ble.si_ProductStatus,
+                    simulation_ble.si_ProductOnJigTestStatus,
+                    simulation_ble.si_QcMode,
+                    simulation_ble.si_QcModeStatus,
+                    simulation_ble.si_JigControl
+                    );
+                }
+                else
+                {
+                    if(sendFirstJigStatus == false)
+                    {
+                        sendFirstJigStatus = true;
+
+                        simulation_ble.si_JigStatus = JIG_STATUS_ERROR;
+                        simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
+
+                        /// set flag jig status
+                        flagSendJigStatus = true;
+
+                        /// set flag product on status
+                        flagSendProductOnJigStatus = true;
+
+                        /// set flag send jig qcMode
+                        flagSendJigQcMode = true;
+                    }
+                }
+            }break;
+            case 1 :
+            {
+                
+                static bool randomResult = false;
+
+                if(newControl == true)
+                {
+                    newControl = false;
+                    simulation_ble.si_JigControl = management.getJigControl();
+                }                    
+
+                if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
+                {
+                    if(simulation_ble.si_QcMode > 0)
+                    {
+                        /// next state
+                        simulation_ble.state = 0;
+
+                        memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                        /// send jig Control
+                        flagSendJigControl = true;
+
+                        /// send jig Control
+                        // send_jigControl();
+                        // delay(5);
+                    }
+
+                    timeSimulation = 0;
+                    simulationCount = 0;
+                    simulationQcMode = 0;
+                }
+                else if(simulation_ble.si_JigControl == JIG_CONTROL_START || simulation_ble.si_JigControl == JIG_CONTROL_RESUME)
+                {
+                    static bool sendFirstJigStatusRunning = false;
+                    
+                    simulation_ble.si_ProductOnJigTestStatus = PRODUCT_RUNNING;
+                    simulation_ble.si_JigStatus = JIG_STATUS_RUNNING;
+
+                    if(sendFirstJigStatusRunning == false)
+                    {
+                        sendFirstJigStatusRunning = true;
+
+                        /// set flag jig status
+                        flagSendJigStatus = true;
+
+                        /// set flag product on status
+                        flagSendProductOnJigStatus = true;
+
+                        /// set flag send jig control
+                        flagSendJigControl = true;
+                    }
+
+                    if(millis() - timeSimulation > 1000)
+                    {
+                        timeSimulation = millis();
+
+                        simulationCount++;
+
+                        Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
+                        simulation_ble.state,
+                        simulation_ble.si_JigStatus,
+                        simulation_ble.si_ProductStatus,
+                        simulation_ble.si_ProductOnJigTestStatus,
+                        simulation_ble.si_QcMode,
+                        simulation_ble.si_QcModeStatus,
+                        simulation_ble.si_JigControl
+                        );
+                    }
+
+                    if(simulationCount == 0)
+                    {
+                        if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                        {
+
+                        }
+                        else
+                        {
+                            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+                        }
+                    
+                        /// set flag send qcMode
+                        flagSendJigQcMode = true;
+
+                        simulationCount ++;
+                    }
+                    else if(simulationCount == 2)
+                    {
+                        if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                        {
+
+                        }
+                        else
+                        {
+                            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
+                        }
+                        
+
+                        /// set flag send qcMode
+                        flagSendJigQcMode = true;
+
+                        simulationCount ++;
+                    }
+                    else if(simulationCount == 7)
+                    {
+                        if(randomResult == false)
+                        {
+                            uint8_t value = random(0, 9);
+
+                            randomResult = true;
+
+                            if(value % 2 == 0)
+                            {
+                                if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                                {
+
+                                }
+                                else
+                                {
+                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+                                }
+                                
+                                /// set flag send qcMode
+                                flagSendJigQcMode = true;
+                            }
+                            else
+                            {
+                                if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
+                                {
+
+                                }
+                                else
+                                {
+                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_FAILED;
+
+                                    modeError = true;
+                                }
+                                
+                                /// set flag send qcMode
+                                flagSendJigQcMode = true;
+                            }
+                        }                          
+                    }
+                    else if(simulationCount >= 9)
+                    {
+                        simulationCount = 0;
+                        randomResult = false;
+                        simulationQcMode ++;
+
+                        // simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+
+                        simulation_ble.si_QcMode = (JigTestQcMode_t)simulationQcMode;
+
+                        /// set flag send qcMode
+                        flagSendJigQcMode = true;
+
+                        sendFirstJigStatusRunning = false;
+                    }
+
+                    if(simulationQcMode >= 8)
+                    {
+                        /// next state
+                        simulation_ble.state = 2;
+
+                        simulationQcMode = 0;
+                        timeSimulation = 0;
+                        simulationCount = 0;
+
+                        if(modeError == true)
+                        {
+                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_FAIL;
+                        }
+                        else
+                        {
+                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
+                        }
+                        
+
+                        /// set flag send product On status
+                        flagSendProductOnJigStatus = true;
+                    }
+                }
+                else if(simulation_ble.si_JigControl == JIG_CONTROL_PAUSE)
+                {
+                    static uint32_t timePause = 0;
+
+                    if(millis() - timePause > 1000)
+                    {
+                        timePause = millis();
+
+                        Serial.println("JIG_CONTROL_PAUSE");
+
+                        /// set flag send control
+                        flagSendJigControl = true;
+
+                        /// send jig Control
+                        // send_jigControl();
+                        // delay(5);
+                    }                       
+                }
+            }break;
+            case 2 :
+            {
+
+                static uint32_t timePause = 0;
+                static uint8_t countAutoBackjigStatus_standby = 0;
+                static bool enableBackToStanby = false;
+
+                /// enable send product Profile
+
+                switch (management.productProfileBuffer[0])
+                {
+                    case 1:
+                    {
+                        flagSendProductProfile = true;
+                        
+
+                    }break;
+                    case 2:
+                    {
+                        // flagSendProductProfile = true;
+                        flagSendProductProfile = management.appOnRead ? true : false;
+
+                    }break;
+                    case 3:
+                    {
+                        // flagSendProductProfile = true;
+                        flagSendProductProfile = management.appOnRead ? true : false;
+
+                    }break;
+                    case 4:
+                    {
+                        // flagSendProductProfile = true;
+                        flagSendProductProfile = management.appOnRead ? true : false;
+
+                    }break;
+                    case 5:
+                    {
+                        // flagSendProductProfile = true;
+                        flagSendProductProfile = management.appOnRead ? true : false;
+                        enableBackToStanby = flagSendProductProfile;
+
+                    }break;
+                    
+                    default:
+                        break;
+                }
+                
+                if(enableBackToStanby == true)
+                {
+                    if(millis() - timePause > 1000)
+                    {
+                        timePause = millis();
+                        if(++countAutoBackjigStatus_standby > 3)
+                        {
+                            enableBackToStanby = false;
+
+                            countAutoBackjigStatus_standby = 0;
+                            Serial.println("jigStatus Back to standby");
+
+                            /// next state
+                            simulation_ble.state = 0;
+
+                            memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                            timeSimulation = 0;
+                            simulationCount = 0;
+
+                            simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
+
+                            /// set flag send jig Status
+                            flagSendJigStatus = true;
+
+                            management.JigControlBuffer[0] = 0x00;
+
+                            firstRun = true;
+                        }
+
+                        Serial.printf("state : %d | countBackToStandby : %d\n", simulation_ble.state, countAutoBackjigStatus_standby);
+                    }
+                } 
+
+                if(newControl == true)
+                {
+                    newControl = false;
+                    simulation_ble.si_JigControl = management.getJigControl();
+                }
+
+                if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
+                {
+                    /// next state
+                    simulation_ble.state = 0;
+
+                    memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
+
+                    if(modeError == true)
+                    {
+                        simulation_ble.si_ProductOnJigTestStatus = PRODUCT_FAIL;
+                    }
+                    else
+                    {
+                        simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
+                    }
+                    
+                    /// set flag send control
+                    flagSendJigControl = true;
+
+                    timeSimulation = 0;
+                    simulationCount = 0;
+                    
+                }
+            }break;
+            
+            default:
+                break;
+        }
+    #endif
+    
+}
+
 /** @brief  process
     @return none
 */
@@ -734,500 +1221,40 @@ void PEGremsy_BLE::process(void)
     static uint32_t timeSequence;
     static bool state = false;
     static uint16_t countLedBlink = 0;
-    static bool checkDeviceConnected = false;
+    
+    simulationProcess();
 
     if(isConnect == true)
     {
         heartBeatHandle();
 
-        if(checkDeviceConnected == false)
+        if(millis() - timeSequence > 50)
         {
-            checkDeviceConnected = true;
-
-            if(management.oldDeviceConnected == false)
-            {
-                /// delete all jig result & process
-                simulation_ble.si_JigControl = JIG_CONTROL_STOP;
-                simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
-                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
-                simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
-                simulation_ble.si_QcMode = JIG_QC_MODE_IDLE;
-                simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
-                simulation_ble.state = 0;
-
-                /// xoa buffer control
-                management.JigControlBuffer[0] = 0x00;
-            }
-            else
-            {
-                /// set flag jig status
-                flagSendJigStatus = true;
-
-                /// set flag product on status
-                flagSendProductOnJigStatus = true;
-
-                delay(1000);
-            }
-        }
-        else
-        {
-            #if ( SIMULATION_PROFILE == 1 )
-
-                static uint32_t timeSimulation = 0;
-                static uint8_t simulationCount = 0;
-                static bool firstRun = false;
-                static bool modeError = false;
-
-                switch (simulation_ble.state)
-                {
-                    case 0/* constant-expression */:
-                        /* code */
-                    {
-                        static bool sendFirstJigStatus = false;
-
-                        if(millis() - timeSimulation > 1000)
-                        {
-                            timeSimulation = millis();
-
-                            simulationCount++;
-
-                            sendFirstJigStatus = false;
-
-                            Serial.printf("count : %d\n", simulationCount);
-                        }
-
-                        if(simulationCount >= 4)
-                        {
-                            simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
-                            simulation_ble.si_ProductStatus = JIG_STATUS_A_PRODUCT_ATTACHED;
-
-                            /// next state
-                            simulation_ble.state = 1;
-                            timeSimulation = 0;
-                            simulationCount = 0;
-
-                            if(firstRun == false)
-                            {
-                                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_WAIT_FOR_QC;
-                            }
-                            
-
-                            /// set flag jig status
-                            flagSendJigStatus = true;
-
-                            /// set flag product on status
-                            flagSendProductOnJigStatus = true;
-
-                            /// reset variables send first
-                            sendFirstJigStatus = false;
-
-                            Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
-                            simulation_ble.state,
-                            simulation_ble.si_JigStatus,
-                            simulation_ble.si_ProductStatus,
-                            simulation_ble.si_ProductOnJigTestStatus,
-                            simulation_ble.si_QcMode,
-                            simulation_ble.si_QcModeStatus,
-                            simulation_ble.si_JigControl
-                            );
-                        }
-                        else
-                        {
-                            if(sendFirstJigStatus == false)
-                            {
-                                sendFirstJigStatus = true;
-
-                                simulation_ble.si_JigStatus = JIG_STATUS_ERROR;
-                                simulation_ble.si_ProductStatus = JIG_STATUS_NO_PRODUCT_ATTACHED;
-
-                                /// set flag jig status
-                                flagSendJigStatus = true;
-
-                                /// set flag product on status
-                                flagSendProductOnJigStatus = true;
-
-                                /// set flag send jig qcMode
-                                flagSendJigQcMode = true;
-                            }
-                        }
-                    }break;
-                    case 1 :
-                    {
-                        static uint8_t simulationQcMode = 0;
-                        static bool randomResult = false;
-                        
-
-                        /// enable send product Profile
-                        // if((uint8_t)simulation_ble.si_ProductOnJigTestStatus > 1)
-                        // {
-                        //     switch (management.productProfileBuffer[0])
-                        //     {
-                        //         case 1:
-                        //         {
-                        //             flagSendProductProfile = true;
-                                    
-
-                        //         }break;
-                        //         case 2:
-                        //         {
-                        //             flagSendProductProfile = management.appOnRead ? false : true;
-
-                        //         }break;
-                        //         case 3:
-                        //         {
-                        //             flagSendProductProfile = management.appOnRead ? true : false;
-
-                        //         }break;
-                        //         case 4:
-                        //         {
-                        //             flagSendProductProfile = management.appOnRead ? true : false;
-
-                        //         }break;
-                        //         case 5:
-                        //         {
-                        //             flagSendProductProfile = management.appOnRead ? true : false;
-
-                        //         }break;
-                                
-                        //         default:
-                        //             break;
-                        //     }
-                        // }
-
-                        simulation_ble.si_JigControl = management.getJigControl();
-
-                        if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
-                        {
-                            if(simulation_ble.si_QcMode > 0)
-                            {
-                                /// next state
-                                simulation_ble.state = 0;
-
-                                memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
-
-                                /// send jig Control
-                                flagSendJigControl = true;
-
-                                /// send jig Control
-                                // send_jigControl();
-                                // delay(5);
-                            }
-
-                            timeSimulation = 0;
-                            simulationCount = 0;
-                            simulationQcMode = 0;
-                        }
-                        else if(simulation_ble.si_JigControl == JIG_CONTROL_START || simulation_ble.si_JigControl == JIG_CONTROL_RESUME)
-                        {
-                            static bool sendFirstJigStatusRunning = false;
-                            
-
-                            simulation_ble.si_ProductOnJigTestStatus = PRODUCT_RUNNING;
-                            simulation_ble.si_JigStatus = JIG_STATUS_RUNNING;
-
-                            if(sendFirstJigStatusRunning == false)
-                            {
-                                sendFirstJigStatusRunning = true;
-
-                                /// set flag jig status
-                                flagSendJigStatus = true;
-
-                                /// set flag product on status
-                                flagSendProductOnJigStatus = true;
-
-                                /// set flag send jig control
-                                flagSendJigControl = true;
-                            }
-
-                            if(millis() - timeSimulation > 1000)
-                            {
-                                timeSimulation = millis();
-
-                                simulationCount++;
-
-                                Serial.printf("state : %d | jigstatus : %d | productStatus : %d | ProductOnStatus : %d | qcMode : %d | qcModeState : %d | controlStatus : %d\n",
-                                simulation_ble.state,
-                                simulation_ble.si_JigStatus,
-                                simulation_ble.si_ProductStatus,
-                                simulation_ble.si_ProductOnJigTestStatus,
-                                simulation_ble.si_QcMode,
-                                simulation_ble.si_QcModeStatus,
-                                simulation_ble.si_JigControl
-                                );
-                            }
-
-                            if(simulationCount == 0)
-                            {
-                                if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
-                                {
-
-                                }
-                                else
-                                {
-                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_IDLE;
-                                }
-                            
-                                /// set flag send qcMode
-                                flagSendJigQcMode = true;
-
-                                simulationCount ++;
-                            }
-                            else if(simulationCount == 2)
-                            {
-                                if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
-                                {
-
-                                }
-                                else
-                                {
-                                    simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
-                                }
-                                
-
-                                /// set flag send qcMode
-                                flagSendJigQcMode = true;
-
-                                simulationCount ++;
-                            }
-                            else if(simulationCount == 7)
-                            {
-                                if(randomResult == false)
-                                {
-                                    uint8_t value = random(0, 9);
-
-                                    randomResult = true;
-
-                                    if(value % 2 == 0)
-                                    {
-                                        if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
-                                        {
-
-                                        }
-                                        else
-                                        {
-                                            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_PASSED;
-                                        }
-                                        
-                                        /// set flag send qcMode
-                                        flagSendJigQcMode = true;
-                                    }
-                                    else
-                                    {
-                                        if(simulation_ble.si_QcMode == 0 ||simulation_ble.si_QcMode == 8)
-                                        {
-
-                                        }
-                                        else
-                                        {
-                                            simulation_ble.si_QcModeStatus = JIG_QC_MODE_STATUS_FAILED;
-
-                                            modeError = true;
-                                        }
-                                        
-                                        /// set flag send qcMode
-                                        flagSendJigQcMode = true;
-                                    }
-                                }                          
-                            }
-                            else if(simulationCount >= 9)
-                            {
-                                simulationCount = 0;
-                                randomResult = false;
-                                simulationQcMode ++;
-
-                                // simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
-
-                                simulation_ble.si_QcMode = (JigTestQcMode_t)simulationQcMode;
-
-                                /// set flag send qcMode
-                                flagSendJigQcMode = true;
-
-                                sendFirstJigStatusRunning = false;
-                            }
-
-                            if(simulationQcMode >= 8)
-                            {
-                                /// next state
-                                simulation_ble.state = 2;
-
-                                simulationQcMode = 0;
-                                timeSimulation = 0;
-                                simulationCount = 0;
-
-                                if(modeError == true)
-                                {
-                                    simulation_ble.si_ProductOnJigTestStatus = PRODUCT_FAIL;
-                                }
-                                else
-                                {
-                                    simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
-                                }
-                                
-
-                                /// set flag send product On status
-                                flagSendProductOnJigStatus = true;
-                            }
-                        }
-                        else if(simulation_ble.si_JigControl == JIG_CONTROL_PAUSE)
-                        {
-                            static uint32_t timePause = 0;
-
-                            if(millis() - timePause > 1000)
-                            {
-                                timePause = millis();
-
-                                Serial.println("JIG_CONTROL_PAUSE");
-
-                                /// set flag send control
-                                flagSendJigControl = true;
-
-                                /// send jig Control
-                                // send_jigControl();
-                                // delay(5);
-                            }                       
-                        }
-                    }break;
-                    case 2 :
-                    {
-
-                        static uint32_t timePause = 0;
-                        static uint8_t countAutoBackjigStatus_standby = 0;
-                        static bool enableBackToStanby = false;
-
-                        /// enable send product Profile
-
-                        switch (management.productProfileBuffer[0])
-                        {
-                            case 1:
-                            {
-                                flagSendProductProfile = true;
-                                
-
-                            }break;
-                            case 2:
-                            {
-                                // flagSendProductProfile = true;
-                                flagSendProductProfile = management.appOnRead ? false : true;
-
-                            }break;
-                            case 3:
-                            {
-                                // flagSendProductProfile = true;
-                                flagSendProductProfile = management.appOnRead ? false : true;
-
-                            }break;
-                            case 4:
-                            {
-                                // flagSendProductProfile = true;
-                                flagSendProductProfile = management.appOnRead ? false : true;
-
-                            }break;
-                            case 5:
-                            {
-                                // flagSendProductProfile = true;
-                                flagSendProductProfile = management.appOnRead ? false : true;
-                                enableBackToStanby = management.appOnRead ? false : true;
-
-                            }break;
-                            
-                            default:
-                                break;
-                        }
-                        
-                        if(enableBackToStanby == true)
-                        {
-                            if(millis() - timePause > 1000)
-                            {
-                                timePause = millis();
-                                if(++countAutoBackjigStatus_standby > 3)
-                                {
-                                    enableBackToStanby = false;
-
-                                    countAutoBackjigStatus_standby = 0;
-                                    Serial.println("jigStatus Back to standby");
-
-                                    /// next state
-                                    simulation_ble.state = 0;
-
-                                    memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
-
-                                    timeSimulation = 0;
-                                    simulationCount = 0;
-
-                                    simulation_ble.si_JigStatus = JIG_STATUS_STANBY;
-
-                                    /// set flag send jig Status
-                                    flagSendJigStatus = true;
-
-                                    management.JigControlBuffer[0] = 0x00;
-
-                                    firstRun = true;
-                                }
-
-                                Serial.printf("state : %d | countBackToStandby : %d\n", simulation_ble.state, countAutoBackjigStatus_standby);
-                            }
-                        } 
-
-                        simulation_ble.si_JigControl = management.getJigControl();
-
-                        if(simulation_ble.si_JigControl == JIG_CONTROL_STOP)
-                        {
-                            /// next state
-                            simulation_ble.state = 0;
-
-                            memset(&simulation_ble, 0, sizeof(bleProfileSimulation_t));
-
-                            if(modeError == true)
-                            {
-                                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_FAIL;
-                            }
-                            else
-                            {
-                                simulation_ble.si_ProductOnJigTestStatus = PRODUCT_COMPLETE;
-                            }
-                            
-                            /// set flag send control
-                            flagSendJigControl = true;
-
-                            timeSimulation = 0;
-                            simulationCount = 0;
-                            
-                        }
-                    }break;
-                    
-                    default:
-                        break;
-                }
-            #endif
-
-            if(millis() - timeSequence > 50)
-            {
-                timeSequence = millis();
-                
-                if(++countLedBlink > 10)
-                {
-                    countLedBlink = 0;
-
-                    digitalWrite(22, state);
-
-                    state = !state;
-                }
+            timeSequence = millis();
             
-                /// send Characteristics jigStatus
-                send_jigStatus(true);
+            if(++countLedBlink > 10)
+            {
+                countLedBlink = 0;
 
-                /// send Characteristics productOnStatus
-                send_ProductOnJigStatus(true);
+                digitalWrite(22, state);
 
-                /// send Characteristics qcMode
-                send_jigQcMode(true);
-
-                /// send Characteristics jigControl
-                send_jigControl();
-
-                /// send product profile
-                send_productProfile();
+                state = !state;
             }
+        
+            /// send Characteristics jigStatus
+            send_jigStatus(true);
+
+            /// send Characteristics productOnStatus
+            send_ProductOnJigStatus(true);
+
+            /// send Characteristics qcMode
+            send_jigQcMode(true);
+
+            /// send Characteristics jigControl
+            send_jigControl();
+
+            /// send product profile
+            send_productProfile();
         }
     }
 
@@ -1237,8 +1264,6 @@ void PEGremsy_BLE::process(void)
         BLEDevice::startAdvertising(); // restart advertising
         Serial.println("restart advertising");
         oldDeviceConnected = isConnect;
-
-        checkDeviceConnected = false;
     }
     // connecting
     if (isConnect && !oldDeviceConnected) {
