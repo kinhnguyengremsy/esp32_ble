@@ -359,10 +359,10 @@ void PEGremsy_BLE::CharacteristicsJigStatus_Initialize(BLEServer* pServer)
     BLEService *pJIGTESTService = pServer->createService(BLE_UUID_JIGTEST_SERVICE);
 
     /// create Characteristics
-    pCharacteristicsJigStatus           = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_STATUS_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
+    pCharacteristicsJigStatus           = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_STATUS_CHAR, BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
 
-    pCharacteristicsProductOnJigStatus  = pJIGTESTService->createCharacteristic(BLE_UUID_PRODUCT_ON_JIG_STATUS_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
-    pCharacteristicsJigQcMode           = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_QC_MODE_CHAR, BLECharacteristic::PROPERTY_NOTIFY);
+    pCharacteristicsProductOnJigStatus  = pJIGTESTService->createCharacteristic(BLE_UUID_PRODUCT_ON_JIG_STATUS_CHAR, BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
+    pCharacteristicsJigQcMode           = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_QC_MODE_CHAR, BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
     pCharacteristicsJigControl          = pJIGTESTService->createCharacteristic(BLE_UUID_JIG_CONTROL_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
 
     /// set write callBack
