@@ -210,7 +210,7 @@ class CallbackConnect: public BLEServerCallbacks {
         if (pBLEServer->getConnectedCount() < 1) {
             BLEDevice::startAdvertising();
         }
-        BLEDevice::setPower(ESP_PWR_LVL_P9, ESP_BLE_PWR_TYPE_CONN_HDL0);
+        BLEDevice::setPower(ESP_PWR_LVL_P9);
 
         isConnect = true;
     }
@@ -384,10 +384,10 @@ void PEGremsy_BLE::CharacteristicsJigStatus_Initialize(BLEServer* pServer)
     /// set write callBack
     pCharacteristicsJigControl->setCallbacks(new writeCallbacks());
 
-    /// create product profile Characteristis
-    pCharacteristicsProductProfile      = pJIGTESTService->createCharacteristic(BLE_UUID_PRODUCT_PROFILE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-    /// set write callBack
-    pCharacteristicsProductProfile->setCallbacks(new writeCallbacks());
+    // /// create product profile Characteristis
+    // pCharacteristicsProductProfile      = pJIGTESTService->createCharacteristic(BLE_UUID_PRODUCT_PROFILE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+    // /// set write callBack
+    // pCharacteristicsProductProfile->setCallbacks(new writeCallbacks());
 
     /// start jigtest service
     pJIGTESTService->start();
@@ -420,7 +420,8 @@ void PEGremsy_BLE::CharacteristicsProduct_Initialize(BLEServer* pServer)
     BLEService *pProductService = pServer->createService(BLE_UUID_PRODUCT_SERVICE);
 
     /// create product profile Characteristis
-    pCharacteristicsProductProfile      = pProductService->createCharacteristic(BLE_UUID_PRODUCT_PROFILE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+    pCharacteristicsProductProfile      = pProductService->createCharacteristic(BLE_UUID_PRODUCT_PROFILE_CHAR, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+    
     /// set write callBack
     pCharacteristicsProductProfile->setCallbacks(new writeCallbacks());
 
@@ -537,7 +538,7 @@ void PEGremsy_BLE::initialize(void)
     // enableScanDevice();
 
     /// set power
-    BLEDevice::setPower(ESP_PWR_LVL_P9, ESP_BLE_PWR_TYPE_ADV);
+    BLEDevice::setPower(ESP_PWR_LVL_P9);
 
     /// create ble server
     BLEServer* pServer = BLEDevice::createServer();
@@ -750,21 +751,42 @@ void PEGremsy_BLE::send_jigControl(void)
 */
 void PEGremsy_BLE::send_productProfile(void)
 {
-    float value = bleProductProfile_simulation[management.productProfileBuffer[0]];
+    // float value = bleProductProfile_simulation[management.productProfileBuffer[0]];
 
-    if(flagSendProductProfile == true)
+    // if(flagSendProductProfile == true)
+    // {
+    //     flagSendProductProfile = false;
+
+    //     /// delete receiver buffer
+    //     management.productProfileBuffer[0] = 0;
+
+    //     /// delete flag onRead
+    //     management.appOnRead = false;
+
+    //     Serial.printf("[send_productProfile] value : %.f\n", value);
+
+    //     pCharacteristicsProductProfile->setValue(value);
+    // }
+
+    static uint8_t countIndex = 1;
+    // uint8_t floatArray[4] = {0};
+    float value = bleProductProfile_simulation[countIndex];
+
+    // ConvertFloat2Hex(value, floatArray);
+
+    String profileStr = String(countIndex) + "*" + String(value);//String(floatArray[0]) + String(floatArray[1]) + String(floatArray[2]) + String(floatArray[3]);
+
+    Serial.println("[send_productProfile] " + profileStr + "index : " + String(countIndex)); 
+
+    pCharacteristicsProductProfile->setValue(profileStr.c_str()); //send string
+    pCharacteristicsProductProfile->notify(true);//comment this line to disable notify 
+    // delay(1000);
+    if (++countIndex >= 6)
     {
-        flagSendProductProfile = false;
+        /// reset countIndex
+        countIndex = 1;
 
-        /// delete receiver buffer
-        management.productProfileBuffer[0] = 0;
-
-        /// delete flag onRead
-        management.appOnRead = false;
-
-        Serial.printf("[send_productProfile] value : %.f\n", value);
-
-        pCharacteristicsProductProfile->setValue(value);
+        management.sendProfileDone = true;
     }
 }
 
@@ -1099,57 +1121,52 @@ void PEGremsy_BLE::simulationProcess(void)
 
                 static uint32_t timePause = 0;
                 static uint8_t countAutoBackjigStatus_standby = 0;
-                static bool enableBackToStanby = false;
 
-                /// enable send product Profile
-
-                switch (management.productProfileBuffer[0])
-                {
-                    case 1:
-                    {
-                        flagSendProductProfile = true;
+                // switch (management.productProfileBuffer[0])
+                // {
+                //     case 1:
+                //     {
+                //         flagSendProductProfile = true;
                         
 
-                    }break;
-                    case 2:
-                    {
-                        // flagSendProductProfile = true;
-                        flagSendProductProfile = management.appOnRead ? true : false;
+                //     }break;
+                //     case 2:
+                //     {
+                //         // flagSendProductProfile = true;
+                //         flagSendProductProfile = management.appOnRead ? true : false;
 
-                    }break;
-                    case 3:
-                    {
-                        // flagSendProductProfile = true;
-                        flagSendProductProfile = management.appOnRead ? true : false;
+                //     }break;
+                //     case 3:
+                //     {
+                //         // flagSendProductProfile = true;
+                //         flagSendProductProfile = management.appOnRead ? true : false;
 
-                    }break;
-                    case 4:
-                    {
-                        // flagSendProductProfile = true;
-                        flagSendProductProfile = management.appOnRead ? true : false;
+                //     }break;
+                //     case 4:
+                //     {
+                //         // flagSendProductProfile = true;
+                //         flagSendProductProfile = management.appOnRead ? true : false;
 
-                    }break;
-                    case 5:
-                    {
-                        // flagSendProductProfile = true;
-                        flagSendProductProfile = management.appOnRead ? true : false;
-                        enableBackToStanby = flagSendProductProfile;
+                //     }break;
+                //     case 5:
+                //     {
+                //         // flagSendProductProfile = true;
+                //         flagSendProductProfile = management.appOnRead ? true : false;
+                //         enableBackToStanby = flagSendProductProfile;
 
-                    }break;
+                //     }break;
                     
-                    default:
-                        break;
-                }
+                //     default:
+                //         break;
+                // }
                 
-                if(enableBackToStanby == true)
+                if(management.sendProfileDone == true)
                 {
                     if(millis() - timePause > 1000)
                     {
                         timePause = millis();
                         if(++countAutoBackjigStatus_standby > 3)
                         {
-                            enableBackToStanby = false;
-
                             countAutoBackjigStatus_standby = 0;
                             Serial.println("jigStatus Back to standby");
 
@@ -1169,6 +1186,8 @@ void PEGremsy_BLE::simulationProcess(void)
                             management.JigControlBuffer[0] = 0x00;
 
                             firstRun = true;
+
+                            management.sendProfileDone = false;
                         }
 
                         Serial.printf("state : %d | countBackToStandby : %d\n", simulation_ble.state, countAutoBackjigStatus_standby);
@@ -1253,11 +1272,14 @@ void PEGremsy_BLE::process(void)
             /// send Characteristics jigControl
             send_jigControl();
 
-            /// send product profile
-            send_productProfile();
+            if(simulation_ble.state == 2 && management.sendProfileDone == false)
+            {
+                /// send product profile
+                send_productProfile();
+            }
         }
     }
-
+    
     // disconnecting
     if (!isConnect && oldDeviceConnected) {
         delay(500); // give the bluetooth stack the chance to get things ready

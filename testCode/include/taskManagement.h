@@ -100,6 +100,7 @@ class taskManagement_t
     bool deviceDisconnected;
     uint8_t oldDeviceConnected;
     bool appOnRead;
+    bool sendProfileDone;
 
     ProductOnJigTestStatus_t  productOnState;
     JigTestQcModeStatus_t     qcModeStatus;
