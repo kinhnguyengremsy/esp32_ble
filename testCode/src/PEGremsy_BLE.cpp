@@ -53,8 +53,8 @@
 #define MANUFACTURER            "GREMSY"
 #define MODEL_NUMBER            "JIGT3-VN"
 #define SERIAL_NUMBER           "JT3-7E5-A-001"
-#define FIRMWARE_VERSION        "0.1.21110101"
-#define HARDWARE_VERSION        "0.1.21110102"
+#define FIRMWARE_VERSION        "1.1.21110101"
+#define HARDWARE_VERSION        "1.1.21110102"
 
 #define BLE_DIS_VENDOR_ID_SRC_BLUETOOTH_SIG  0x01
 #define BLE_DIS_VENDOR_ID_LSB                0x63
@@ -69,7 +69,7 @@
 
 #define FLASH_MEMORY_SIZE 10
 
-#define SIMULATION_PROFILE  1
+#define SIMULATION_PROFILE  0
 
 typedef struct 
 {
@@ -118,7 +118,6 @@ char deviceName[100];
 
 extern mavlinkHandle_t mavlink;
 extern taskManagement_t management;
-extern mavlinkHandle_t mavlink;
 
 bleProfileSimulation_t simulation_ble;
 
@@ -250,6 +249,7 @@ class writeCallbacks: public BLECharacteristicCallbacks
             }
 
             newControl = true;
+            management.newControl = true;
         }
         else if(UuIdGet.equals(productProfile) == true)
         {
@@ -655,17 +655,21 @@ void PEGremsy_BLE::send_jigStatus(bool Notify)
 
         uint8_t jigStatusBuffer[2] = {(uint8_t)simulation_ble.si_JigStatus, (uint8_t)simulation_ble.si_ProductStatus};
 
+        if(flagSendJigStatus == true)
+        {
+
     #else
 
         JigTestStatus_t jigStatus = management.getJigStatus();
-        ProductStatus_t productStatus = management.getProductStatus();
+        uint8_t productStatus = management.getProductStatus();
 
         uint8_t jigStatusBuffer[2] = {(uint8_t)jigStatus, (uint8_t)productStatus};
 
+        if(management.flagSendJigStatus == true)
+        {
+            management.flagSendJigStatus = false;
     #endif
 
-    if(flagSendJigStatus == true)
-    {
         flagSendJigStatus = false;
 
         pCharacteristicsJigStatus->setValue(jigStatusBuffer, 2);
@@ -683,15 +687,17 @@ void PEGremsy_BLE::send_ProductOnJigStatus(bool Notify)
     #if (SIMULATION_PROFILE == 1)
 
         uint8_t productOnStatusBuffer[1] = {(uint8_t)simulation_ble.si_ProductOnJigTestStatus};
+        if(flagSendProductOnJigStatus == true)
+        {
+            flagSendProductOnJigStatus = false;
 
     #else
         ProductOnJigTestStatus_t productOnStatus = management.getProductOnJigTestStatus();
         uint8_t productOnStatusBuffer[1] = {(uint8_t)productOnStatus};
+        if(management.flagSendProductOnJigStatus == true)
+        {
+            management.flagSendProductOnJigStatus = false;
     #endif
-
-    if(flagSendProductOnJigStatus == true)
-    {
-        flagSendProductOnJigStatus = false;
 
         pCharacteristicsProductOnJigStatus->setValue(productOnStatusBuffer, 1);
         pCharacteristicsProductOnJigStatus->notify(true);
@@ -709,17 +715,20 @@ void PEGremsy_BLE::send_jigQcMode(bool Notify)
 
     uint8_t qcModeBuffer[2] = {(uint8_t)simulation_ble.si_QcMode, (uint8_t)simulation_ble.si_QcModeStatus};
 
+        if(flagSendJigQcMode == true)
+        {
+            flagSendJigQcMode = false;
+
     #else
 
         JigTestQcMode_t qcMode = management.getQcMode();
         JigTestQcModeStatus_t qcModeStatus = management.getQcModeStatus();
         uint8_t qcModeBuffer[2] = {(uint8_t)qcMode, (uint8_t)qcModeStatus};
 
+        if(management.flagSendJigQcMode == true)
+        {
+            management.flagSendJigQcMode = false;
     #endif
-
-    if(flagSendJigQcMode == true)
-    {
-        flagSendJigQcMode = false;
 
         pCharacteristicsJigQcMode->setValue(qcModeBuffer, 2);
         pCharacteristicsJigQcMode->notify(true);
@@ -751,23 +760,6 @@ void PEGremsy_BLE::send_jigControl(void)
 */
 void PEGremsy_BLE::send_productProfile(void)
 {
-    // float value = bleProductProfile_simulation[management.productProfileBuffer[0]];
-
-    // if(flagSendProductProfile == true)
-    // {
-    //     flagSendProductProfile = false;
-
-    //     /// delete receiver buffer
-    //     management.productProfileBuffer[0] = 0;
-
-    //     /// delete flag onRead
-    //     management.appOnRead = false;
-
-    //     Serial.printf("[send_productProfile] value : %.f\n", value);
-
-    //     pCharacteristicsProductProfile->setValue(value);
-    // }
-
     static uint8_t countIndex = 1;
     // uint8_t floatArray[4] = {0};
     float value = bleProductProfile_simulation[countIndex];
@@ -1272,8 +1264,13 @@ void PEGremsy_BLE::process(void)
             /// send Characteristics jigControl
             send_jigControl();
 
+            #if (SIMULATION_PROFILE == 1)
             if(simulation_ble.state == 2 && management.sendProfileDone == false)
             {
+            #else
+                if(management.jigState == JIG_STATE_DONE && management.sendProfileDone == false)
+                {
+            #endif
                 /// send product profile
                 send_productProfile();
             }

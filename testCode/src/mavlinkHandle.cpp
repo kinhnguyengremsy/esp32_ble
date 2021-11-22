@@ -120,11 +120,9 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 
 			#if(DEBUG_MAVLINK_HANDLE_HEARTBEAT_SERIAL1 == 1)
 
-				char buffHeartbeatSr2[300];
-
 				if(channel == MAVLINK_COMM_1)
 				{
-					sprintf(buffHeartbeatSr2, "[heartbeat Serial1] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d"
+					Serial.printf("[heartbeat Serial1] autopilot : %3d, base_mode : %3d, custom_mode : %3d, mavlink_version : %3d, system_status : %3d, type : %3d\n"
 						,msg->heartBeat.autopilot
 						,msg->heartBeat.base_mode
 						,msg->heartBeat.custom_mode
@@ -132,8 +130,6 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 						,msg->heartBeat.system_status
 						,msg->heartBeat.type
 					);
-
-					Serial.println(buffHeartbeatSr2);
 				}
 
 			#endif		            
@@ -237,19 +233,15 @@ void mavlinkMessageHandle(mavlink_channel_t channel, mavlinkMsg_t* msg, mav_stat
 
 			#if(DEBUG_MAVLINK_HANDLE_MOUNTORIENTATION_SERIAL2 == 1)
 
-				char buffMountOrienSr2[100];
-
 				if(channel == MAVLINK_COMM_0)
 				{
-					sprintf(buffMountOrienSr2, "[mountOrientation Serial2] pitch : %f, roll : %f, yaw : %f, time_boot_ms : %7d, yaw_absolute : %f"
+					Serial.printf("[mountOrientation Serial2] pitch : %f, roll : %f, yaw : %f, time_boot_ms : %7d, yaw_absolute : %f\n"
 						,msg->mountOrientation.pitch
 						,msg->mountOrientation.roll
 						,msg->mountOrientation.yaw
 						,msg->mountOrientation.time_boot_ms
 						,msg->mountOrientation.yaw_absolute
 					);
-
-					Serial.println(buffMountOrienSr2);
 				}
 				
 
@@ -1414,6 +1406,7 @@ void mavlinkHandle_t::mavlink_set_gimbal_reboot(mavlink_channel_t channel)
 /** @brief requestGimbalModeRC
     @return none
 */
+#define REQUEST_GIMBAL_MODE_RC_PRINT_DEBUG	0
 bool mavlinkHandle_t::requestGimbalModeRC(modeRC_control_gimbal_t modeRC)
 {
 	bool ret = false;
@@ -1430,7 +1423,9 @@ bool mavlinkHandle_t::requestGimbalModeRC(modeRC_control_gimbal_t modeRC)
 			mavlinkSerial2.paramValue.param_index = 0;
 			mavlinkSerial2.paramValue.param_value = 0;
 
-			Serial.println("[requestGimbalModeRC] DONE ");
+			#if (REQUEST_GIMBAL_MODE_RC_PRINT_DEBUG == 1)
+				Serial.println("[requestGimbalModeRC] DONE ");
+			#endif
 			
 			ret = true;
 		}
@@ -1442,7 +1437,10 @@ bool mavlinkHandle_t::requestGimbalModeRC(modeRC_control_gimbal_t modeRC)
 			timeSendParam = millis();
 
 			mavlink_set_param_gimbal(MAVLINK_COMM_0, (float)modeRC, param_id);
-			Serial.println("[requestGimbalModeRC] send mode : " + String(modeRC));
+
+			#if (REQUEST_GIMBAL_MODE_RC_PRINT_DEBUG == 1)
+				Serial.println("[requestGimbalModeRC] send mode : " + String(modeRC));
+			#endif
 		}
 		else
 		{
@@ -1452,7 +1450,9 @@ bool mavlinkHandle_t::requestGimbalModeRC(modeRC_control_gimbal_t modeRC)
 
 				mavlink_param_request_read(MAVLINK_COMM_0, 28, param_id);
 
-				Serial.println("[requestGimbalModeRC] send request mode : " + String(modeRC));
+				#if (REQUEST_GIMBAL_MODE_RC_PRINT_DEBUG == 1)
+					Serial.println("[requestGimbalModeRC] send request mode : " + String(modeRC));
+				#endif
 			}
 		}
 	}
@@ -1508,6 +1508,7 @@ void mavlinkHandle_t::recieverData(void)
 /** @brief getGimbalReturnHome
     @return bool
 */
+#define GET_GIMBAL_RETURN_HOME_PRINT_DEBUG	0
 bool mavlinkHandle_t::getGimbalReturnHome(void)
 {
 	bool ret = false;
@@ -1533,12 +1534,14 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 			mavlink_set_gimbal_home(MAVLINK_COMM_0);
 		}
 
-		Serial.println("[getGimbalReturnHome] set gimbal return home running ....... | " 
-		+ String(mavlinkSerial2.mountOrientation.yaw) 
-		+ " | " + String(mavlinkSerial2.mountOrientation.roll) 
-		+ " | " + String(mavlinkSerial2.mountOrientation.pitch) 
-		+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) 
-		+ " | result : " + String(mavlinkSerial2.ackCommand.result));
+		#if (GET_GIMBAL_RETURN_HOME_PRINT_DEBUG == 1)
+			Serial.println("[getGimbalReturnHome] set gimbal return home running ....... | " 
+			+ String(mavlinkSerial2.mountOrientation.yaw) 
+			+ " | " + String(mavlinkSerial2.mountOrientation.roll) 
+			+ " | " + String(mavlinkSerial2.mountOrientation.pitch) 
+			+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) 
+			+ " | result : " + String(mavlinkSerial2.ackCommand.result));
+		#endif
 	}
 	else
 	{
@@ -1564,9 +1567,10 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 						uint8_t len = sizeof(mavlink_command_ack_t);
 						memset(&mavlinkSerial2.ackCommand, 0, len);
 
-						Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaRoll) + " | " + String(deltaTilt)
-						+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
-						
+						#if (GET_GIMBAL_RETURN_HOME_PRINT_DEBUG == 1)
+							Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaRoll) + " | " + String(deltaTilt)
+							+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
+						#endif
 						ret = true;
 					}
 				}
@@ -1585,9 +1589,10 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 						uint8_t len = sizeof(mavlink_command_ack_t);
 						memset(&mavlinkSerial2.ackCommand, 0, len);
 
-						Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaPan) + " | " + String(deltaRoll) + " | " + String(deltaTilt)
-						+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
-						
+						#if (GET_GIMBAL_RETURN_HOME_PRINT_DEBUG == 1)
+							Serial.println("[getGimbalReturnHome] gimbal is HOME | " + String(deltaPan) + " | " + String(deltaRoll) + " | " + String(deltaTilt)
+							+ "ackCommand :" + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.result));
+						#endif
 						ret = true;
 					}
 				}
@@ -1601,6 +1606,7 @@ bool mavlinkHandle_t::getGimbalReturnHome(void)
 /** @brief applyControlGimbalWithRC
     @return bool
 */
+#define APPLY_CONTROL_GIMBAL_WITH_RC_PRINT_DEBUG	0
 bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink)
 {
 	bool ret = false;
@@ -1616,7 +1622,9 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 	{
 		timeDebug = millis();
 
-		Serial.println("[applyControlGimbalWithRC] checkGimbalHome : " + String(checkGimbalHome) + " | checkModeControl : " + String(checkModeControl) + " | checkRCintput : " + String(checkRCintput));
+		#if (APPLY_CONTROL_GIMBAL_WITH_RC_PRINT_DEBUG == 1)
+			Serial.println("[applyControlGimbalWithRC] checkGimbalHome : " + String(checkGimbalHome) + " | checkModeControl : " + String(checkModeControl) + " | checkRCintput : " + String(checkRCintput));
+		#endif
 	}
 
 	if(checkGimbalHome == false)
@@ -1651,29 +1659,35 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 					{
 						mavlink_remoteControl(MAVLINK_COMM_0, REMOTE_CONTROL_MODE);
 
-						Serial.println("[applyControlGimbalWithRC] REMOTE_CONTROL_MODE ... command : " + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.command));
+						#if (APPLY_CONTROL_GIMBAL_WITH_RC_PRINT_DEBUG == 1)
+							Serial.println("[applyControlGimbalWithRC] REMOTE_CONTROL_MODE ... command : " + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.command));
+						#endif
 					}
 					else
 					{
 						mavlink_remoteControl(MAVLINK_COMM_0, MAVLINK_CONTROL_MODE);
 
-						Serial.println("[applyControlGimbalWithRC] MAVLINK_CONTROL_MODE ... command : " + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.command));
+						#if (APPLY_CONTROL_GIMBAL_WITH_RC_PRINT_DEBUG == 1)
+							Serial.println("[applyControlGimbalWithRC] MAVLINK_CONTROL_MODE ... command : " + String(mavlinkSerial2.ackCommand.command) + " | result : " + String(mavlinkSerial2.ackCommand.command));
+						#endif
 					}
 
 					if(++countTimeOut_setGimbalRcControl > 5)
 					{
 						countTimeOut_setGimbalRcControl = 0;
 
-						Serial.println("[applyControlGimbalWithRC] time out set gimbal RC control ...... reboot Gimbal");
-
+						#if (APPLY_CONTROL_GIMBAL_WITH_RC_PRINT_DEBUG == 1)
+							Serial.println("[applyControlGimbalWithRC] time out set gimbal RC control ...... reboot Gimbal");
+						#endif
 						mavlink_set_gimbal_reboot(MAVLINK_COMM_0);
 					}
 				}		
 
 				if(mavlinkSerial2.ackCommand.command == MAV_CMD_DO_MOUNT_CONFIGURE)
 				{
-					Serial.println("[applyControlGimbalWithRC] DONE");
-
+					#if (APPLY_CONTROL_GIMBAL_WITH_RC_PRINT_DEBUG == 1)
+						Serial.println("[applyControlGimbalWithRC] DONE");
+					#endif
 					checkRCintput = true;
 				}
 			}
@@ -1697,6 +1711,7 @@ bool mavlinkHandle_t::applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, b
 /** @brief applyControlJig
     @return none
 */
+#define APPLY_CONTROL_JIG_PRINT_DEBUG	0
 bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t modeInput, controlJigMode_t modeOutput)
 {
 	bool ret = false;
@@ -1704,6 +1719,7 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 	static bool applyControl = false;
 	static uint32_t timeSendModeRcControl = 0;
 	static uint8_t countMode = 0;
+	static bool getResultQcMode = false;
 
 	if(applyControl == false)
 	{
@@ -1714,15 +1730,15 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 
 		applyControl = applyControlGimbalWithRC(modeControl, rcInput);
 
-		/// QcModeStatus PASS
-		management.qcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+		QcStatus = 0;
 	}
 	else
 	{
 		control.type = COMMAND_START;
 
 		/// running
-		management.qcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
+		// management.qcModeStatus = JIG_QC_MODE_STATUS_RUNNING;
+		QcStatus = 1;
 
 		if(mavlinkSerial1.heartBeat.type == COMMAND_START)
 		{
@@ -1734,26 +1750,40 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 
 				if(++countMode > 15)
 				{
-					Serial.println("[controlJig] timeOut ---> next mode: " + String(modeControl));
-					
+					#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+						Serial.println("[controlJig] timeOut ---> next mode: " + String(modeControl));
+					#endif
 					applyControl = false;
 					timeSendModeRcControl = 0;
 					countMode = 0;
 
 					/// QcModeStatus FAIL
-					management.qcModeStatus = JIG_QC_MODE_STATUS_FAILED;
+					// management.qcModeStatus = JIG_QC_MODE_STATUS_FAILED;
+					QcStatus = 3;
 
+					/// check result fail
+					checkresultQC = true;
+
+					getResultQcMode = true;
+
+					#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+						Serial.printf("[applyControlJig] qcModeStatus : %d\n", management.qcModeStatus);
+					#endif
 					ret = true;
 				}
 				else
 				{
 					if(mavlinkSerial1.heartBeat.base_mode == (uint8_t)modeInput)
 					{
-						Serial.println("[controlJig] apply mode : " + String(modeInput) + " | countControl : " + String(countMode));
+						#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+							Serial.println("[controlJig] apply mode : " + String(modeInput) + " | countControl : " + String(countMode));
+						#endif
 					}
 					else
 					{
-						Serial.println("[controlJig] send mode control : " + String(modeInput));
+						#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+							Serial.println("[controlJig] send mode control : " + String(modeInput));
+						#endif
 					}
 
 					/// apply mode test COM2
@@ -1763,15 +1793,23 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 
 						if((mavlinkSerial1.heartBeat.custom_mode & 0x08) == 0x08)
 						{
-							Serial.println("[controlJig] test DONE ---> next mode: " + String(modeOutput));
+							#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+								Serial.println("[controlJig] test DONE ---> next mode: " + String(modeOutput));
+							#endif
 
 							applyControl = false;
 							timeSendModeRcControl = 0;
 							countMode = 0;
 
 							/// QcModeStatus PASS
-							management.qcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+							// management.qcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+							QcStatus = 2;
 
+							getResultQcMode = true;
+
+							#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+								Serial.printf("[applyControlJig] qcModeStatus : %d\n", QcStatus);//management.qcModeStatus);
+							#endif
 							ret = true;
 						}
 					}
@@ -1779,15 +1817,22 @@ bool mavlinkHandle_t::applyControlJig(modeRC_control_gimbal_t modeControl, contr
 					{
 						if(mavlinkSerial1.heartBeat.autopilot == 2)
 						{
-							Serial.println("[controlJig] test DONE ---> next mode: " + String(modeOutput));
-
+							#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+								Serial.println("[controlJig] test DONE ---> next mode: " + String(modeOutput));
+							#endif
 							applyControl = false;
 							timeSendModeRcControl = 0;
 							countMode = 0;
 
 							/// QcModeStatus PASS
-							management.qcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+							// management.qcModeStatus = JIG_QC_MODE_STATUS_PASSED;
+							QcStatus = 2;
 
+							getResultQcMode = true;
+
+							#if (APPLY_CONTROL_JIG_PRINT_DEBUG == 1)
+								Serial.printf("[applyControlJig] qcModeStatus : %d\n", QcStatus);//management.qcModeStatus);
+							#endif
 							ret = true;
 						}
 					}
@@ -1880,6 +1925,8 @@ void mavlinkHandle_t::controlJig(void)
 		case CONTROL_JIG_STATE_SETTING_PARAM_GIMBAL :
 		{
 			static bool enableSEttingParam = false;
+
+			control.type = COMMAND_SETPARAM;
 
 			if(management.productReady == true)
 			{
@@ -2137,15 +2184,276 @@ void mavlinkHandle_t::controlJig(void)
 	}
 }
 
-/** @brief process
+/** @brief jigProcessState_IDLE
     @return none
 */
-void mavlinkHandle_t::process( void *pvParameters )
+bool mavlinkHandle_t::jigProcessState_IDLE(void)
 {
-	static uint32_t timeOutHeartBeat = 0;
+	bool ret = false;
+	static bool sendFirstJigStatus = false;
+	static bool sendJigStatusReady = false;
+	static bool firstRun = false;
 
-	sendData();
-	recieverData();
+	if(sendFirstJigStatus == false)
+	{
+		sendFirstJigStatus = true;
+
+		/// send jigStatus lan dau
+		management.flagSendJigStatus = true;
+
+		Serial.println("[jigProcessState_IDLE] : send first jig status");
+	}
+
+	if(management.jigReady ==  true && sendJigStatusReady == false)
+	{
+		sendJigStatusReady = true;
+
+		/// set variables jig status running
+		management.jigStatus = JIG_STATUS_STANBY;
+
+		// send jigStatus ready
+		management.flagSendJigStatus = true;
+
+		Serial.println("[jigProcessState_IDLE] : send jig status ready");
+	}
+
+	if(management.jigReady ==  true && management.productReady == true)
+	{
+		sendFirstJigStatus = false;
+		sendJigStatusReady = false;
+
+		// send jigStatus ready and product ready
+		management.flagSendJigStatus = true;
+
+		if(firstRun == false)
+		{
+			firstRun = true;
+
+			/// set variables product on status
+			management.productOnState = PRODUCT_WAIT_FOR_QC;
+		}
+
+		/// send product on jigStatus
+		management.flagSendProductOnJigStatus = true;
+
+		/// send Qcmode
+		management.flagSendJigQcMode = true;
+
+		Serial.println("[jigProcessState_IDLE] : send jig status & product ready");
+
+		ret = true;
+	}
+
+	return ret;
+}
+
+/** @brief jigProcessState_CONNECT
+    @return none
+*/
+bool mavlinkHandle_t::jigProcessState_CONNECT(void)
+{
+	bool ret = true;
+
+
+
+	return ret;
+}
+
+/** @brief jigProcessState_PROCESS
+    @return none
+*/
+bool checkReplaceValue(int *value, uint8_t newValue)
+{
+	bool ret = false;
+
+	if(*value != newValue)
+	{
+		/// get new value
+		*value = newValue;
+
+		ret = true;
+		Serial.println("[checkReplaceValue] ok");
+	}
+
+	return ret;
+}
+
+/** @brief jigProcessState_PROCESS
+    @return none
+*/
+bool mavlinkHandle_t::jigProcessState_PROCESS(void)
+{
+	bool ret = false;
+	static jigControl_t BLEcontrol;
+	static bool jigStatusRunning = false;
+	static bool flagWQcModeStatus = false;
+	static uint32_t timeWQcModeStatus = 0;
+	static int checkQcMode = 0;
+	static int checkQcStatus = -1;
+
+	if(management.newControl == true)
+	{
+		management.newControl = false;
+
+		BLEcontrol = management.getJigControl();
+	}
+
+	if(BLEcontrol == JIG_CONTROL_STOP)
+	{
+		/// kiem tra QcMode
+		if(mavlinkSerial1.heartBeat.base_mode != 0)
+		{
+			Serial.println("[jigProcessState_PROCESS] control STOP back to state IDLE");
+			management.jigState = JIG_STATE_IDLE;
+		}
+	}
+	else if(BLEcontrol == JIG_CONTROL_START || BLEcontrol == JIG_CONTROL_RESUME)
+	{
+		/// send jig status running
+		if(jigStatusRunning == false)
+		{	
+			jigStatusRunning = true;
+
+			/// set variables jig status running
+			management.jigStatus = JIG_STATUS_RUNNING;
+
+			/// set flag send jig status
+			management.flagSendJigStatus = true;
+
+			/// set variables product on status
+			management.productOnState = PRODUCT_RUNNING;
+
+			/// set flag send product On jig status
+			management.flagSendProductOnJigStatus = true;
+		}
+		
+		if(checkReplaceValue(&checkQcMode, mavlinkSerial1.heartBeat.base_mode) == true)
+		{
+			/// reset QCMode Status
+			management.qcModeStatus = JIG_QC_MODE_STATUS_IDLE;
+
+			management.qcModeStatus = (JigTestQcModeStatus_t)QcStatus;
+
+			/// set flag send Qcmode
+			management.flagSendJigQcMode = true;
+		}
+
+		if(checkReplaceValue(&checkQcStatus, QcStatus) == true && flagWQcModeStatus == false)
+		{
+			flagWQcModeStatus = true;
+		}
+
+		if(flagWQcModeStatus == true)
+		{
+			if(millis() - timeWQcModeStatus > 2000)
+			{
+				timeWQcModeStatus = millis();
+
+				flagWQcModeStatus = false;
+
+				Serial.printf("[jigProcessState_PROCESS] qcStatus : %d\n", QcStatus);//management.qcModeStatus);
+
+				management.qcModeStatus = (JigTestQcModeStatus_t)QcStatus;
+
+				/// set flag send QcMode Status
+				management.flagSendJigQcMode = true;
+			}
+		}
+
+		controlJig();
+	}
+	else if(BLEcontrol == JIG_CONTROL_PAUSE)
+	{
+		static uint32_t timePause = 0;
+
+		if(millis() - timePause > 1000)
+		{
+			timePause = millis();
+
+			Serial.println("[jigProcessState_PROCESS] JIG_CONTROL_PAUSE");
+
+			/// set flag send control
+			management.flagSendJigControl = true;
+		} 		
+	}
+
+	/// check running DONE
+	if(mavlinkSerial1.heartBeat.base_mode == CONTROL_JIG_MODE_CHECK_ALL_RESULT)
+	{
+		jigStatusRunning = false;
+		flagWQcModeStatus = false;
+		timeWQcModeStatus = 0;
+		BLEcontrol = JIG_CONTROL_STOP;
+		checkQcMode = 0;
+		checkQcStatus = -1;
+
+
+		/// set variables product on status
+		management.productOnState = checkresultQC ? PRODUCT_FAIL : PRODUCT_COMPLETE;
+
+		/// set flag send product On jig status
+		management.flagSendProductOnJigStatus = true;
+
+		ret = true;
+	}
+	
+	return ret;
+}
+
+/** @brief jigProcessState_DONE
+    @return none
+*/
+bool mavlinkHandle_t::jigProcessState_DONE(void)
+{
+	bool ret = false;
+	static uint32_t timeBackToStanby = 0;
+	static uint8_t countBackToStanby = 0;
+
+	if(millis() - timeBackToStanby > 1000)
+	{
+		timeBackToStanby = millis();
+
+		Serial.printf("[jigProcessState_DONE] countBackToStanby : %d\n", countBackToStanby);
+
+		/// reset stm32
+		control.type = COMMAND_RESET;
+
+		control.base_mode = 0;
+
+		if(++countBackToStanby >= 4)
+		{
+			timeBackToStanby = 0;
+			countBackToStanby = 0;
+
+			management.JigControlBuffer[0] = 0x00;
+			management.sendProfileDone = false;
+
+			/// set variables jig status running
+			management.jigStatus = JIG_STATUS_STANBY;
+
+			// send jigStatus ready
+			management.flagSendJigStatus = true;
+
+			control.type = COMMAND_STOP;
+
+			state = CONTROL_JIG_STATE_IDLE;
+
+			Serial.printf("[jigProcessState_DONE] back to stanby approve \n");
+
+			ret = true;
+		}
+	}
+
+	return ret;
+}
+
+/** @brief jigProcessState
+    @return none
+*/
+void mavlinkHandle_t::jigProcessState(void)
+{
+	static uint32_t timePrintDebug = 0;
+	static uint32_t timeOutHeartBeat = 0;
 
 	if(millis() - timeOutHeartBeat > 2000 || timeOutHeartBeat == 0)
 	{
@@ -2158,63 +2466,94 @@ void mavlinkHandle_t::process( void *pvParameters )
 		management.productReady = getSerial2HeartBeatReady(0);
 	}
 
-	/// get jigControl from app
-	jigControl_t jigControl = management.getJigControl();
-
-	if(jigControl == JIG_CONTROL_STOP)
+	switch (management.jigState)
 	{
-
+		case JIG_STATE_IDLE:
+		{
+			if(jigProcessState_IDLE() == true)
+			{
+				management.jigState = JIG_STATE_CONNECT;
+			}
+		}
+		break;
+		case JIG_STATE_CONNECT:
+		{
+			if(jigProcessState_CONNECT() == true)
+			{
+				management.jigState = JIG_STATE_PROCESS;
+			}
+		}
+		break;
+		case JIG_STATE_PROCESS:
+		{
+			if(jigProcessState_PROCESS() == true)
+			{
+				management.jigState = JIG_STATE_DONE;
+			}
+		}
+		break;
+		case JIG_STATE_DONE:
+		{
+			if(jigProcessState_DONE() == true)
+			{
+				management.jigState = JIG_STATE_IDLE;
+			}
+		}
+		break;
+		
+		default:
+			break;
 	}
-	else if(jigControl == JIG_CONTROL_START)
+
+	if(millis() - timePrintDebug > 1000)
 	{
-		controlJig();
+		timePrintDebug = millis();
+
+		Serial.printf("[jigProcessState] state : %d\n", management.jigState);
 	}
-	else if(jigControl == JIG_CONTROL_PAUSE)
-	{
+}
 
-	}
-	else if(jigControl == JIG_CONTROL_RESUME)
-	{
+/** @brief process
+    @return none
+*/
+void mavlinkHandle_t::process( void *pvParameters )
+{
+	// static uint32_t timeOutHeartBeat = 0;
 
-	}
+	sendData();
+	recieverData();
 
-	// /// get jig status from app
-	// BLE_controlJigStatus_t jigStatus = management.getJigStatus();
+	jigProcessState();
 
-	// if(jigStatus == BLE_CONTROL_JIG_STATUS_START)
+	// if(millis() - timeOutHeartBeat > 2000 || timeOutHeartBeat == 0)
 	// {
-	// 	JigHeartBeatReady = getHeartBeatReady(&mavlinkSerial1.heartBeat.flag_heartbeat, MAVLINK_COMM_1);
+	// 	timeOutHeartBeat = millis();
 
-	// 	if(JigHeartBeatReady == true)
-	// 	{
-	// 		controlJig();			
-	// 	}
+	// 	/// get jig ready
+	// 	management.jigReady = getSerial1HeartBeatReady(0);
+
+	// 	/// get product ready
+	// 	management.productReady = getSerial2HeartBeatReady(0);
 	// }
-	// if(jigStatus == BLE_CONTROL_JIG_STATUS_STOP)
+
+	// /// get jigControl from app
+	// jigControl_t jigControl = management.getJigControl();
+
+	// if(jigControl == JIG_CONTROL_STOP)
 	// {
-	// 	// uint16_t len1 = sizeof(mavlinkMsg_t);
-    //     // memcpy(&mavlinkSerial1, 0, len1);
-	// 	// memcpy(&mavlinkSerial2, 0, len1);
 
-	// 	// uint8_t len2 = sizeof(mavlink_msg_heartbeat_t);
-	// 	// memcpy(&control, 0, len2);
+	// }
+	// else if(jigControl == JIG_CONTROL_START)
+	// {
+	// 	controlJig();
+	// }
+	// else if(jigControl == JIG_CONTROL_PAUSE)
+	// {
 
-	// 	mavlinkSerial1.heartBeat.autopilot = 0;
-	// 	mavlinkSerial1.heartBeat.base_mode = 0;
-	// 	mavlinkSerial1.heartBeat.custom_mode = 0;
-	// 	mavlinkSerial1.heartBeat.mavlink_version = 0;
-	// 	mavlinkSerial1.heartBeat.system_status = 0;
-	// 	mavlinkSerial1.heartBeat.type = 0;
+	// }
+	// else if(jigControl == JIG_CONTROL_RESUME)
+	// {
 
-	// 	control.autopilot = 0;
-	// 	control.base_mode = 0;
-	// 	control.custom_mode = 0;
-	// 	control.mavlink_version = 0;
-	// 	control.system_status = 0;
-	// 	control.type = 0;
-
-	// 	mode = CONTROL_JIG_MODE_IDLE;
-	// 	state = CONTROL_JIG_STATE_IDLE;
 	// }
 }
 

@@ -49,7 +49,7 @@
 
 #define GIMBAL_PARAM_TEST_YAW_P_T3V3              40//90
 #define GIMBAL_PARAM_TEST_ROLL_P_T3V3             40//80
-#define GIMBAL_PARAM_TEST_PITCH_P_T3V3            40//70
+#define GIMBAL_PARAM_TEST_PITCH_P_T3V3            20//70
 
 #define GIMBAL_PARAM_TEST_YAW_P_S1V3              60
 #define GIMBAL_PARAM_TEST_ROLL_P_S1V3             50

@@ -85,6 +85,15 @@ typedef enum
 
 }jigControl_t;
 
+typedef enum
+{
+  JIG_STATE_IDLE = 0x00,
+  JIG_STATE_CONNECT,
+  JIG_STATE_PROCESS,
+  JIG_STATE_DONE,
+
+}jigState_t;
+
 class taskManagement_t
 {
   private:
@@ -95,18 +104,27 @@ class taskManagement_t
     uint8_t productProfileBuffer[1];
     uint8_t countDeviceConnected;
 
+		bool flagSendJigStatus;
+		bool flagSendProductOnJigStatus;
+		bool flagSendJigQcMode;
+		bool flagSendJigControl;
+		bool flagSendProductProfile;
+    bool newControl;
+
     bool jigReady;
     bool productReady;
     bool deviceDisconnected;
     uint8_t oldDeviceConnected;
     bool appOnRead;
     bool sendProfileDone;
+    jigState_t jigState;
 
+    JigTestStatus_t           jigStatus;
     ProductOnJigTestStatus_t  productOnState;
     JigTestQcModeStatus_t     qcModeStatus;
 
     JigTestStatus_t getJigStatus(void);
-    ProductStatus_t getProductStatus(void);
+    uint8_t getProductStatus(void);
     ProductOnJigTestStatus_t getProductOnJigTestStatus(void);
     JigTestQcMode_t getQcMode(void);
     JigTestQcModeStatus_t getQcModeStatus(void);

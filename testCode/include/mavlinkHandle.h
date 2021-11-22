@@ -163,6 +163,7 @@ typedef enum _commandStartStop_t
 	COMMAND_STOP,
 	COMMAND_RESET,
 	COMMAND_WGRH,
+	COMMAND_SETPARAM,
 
 }commandStartStop_t;
 
@@ -293,7 +294,8 @@ class mavlinkHandle_t
 
 	private:
 		/* data */
-
+		uint8_t QcStatus;
+		bool checkresultQC;
 		/* function */
 		void mavlink_set_gimbal_move(mavlink_channel_t channel, int16_t tilt, int16_t roll, int16_t pan, E_GimbalRotationMode rotationMode);
 		void mavlink_set_gimbal_home(mavlink_channel_t channel);
@@ -312,6 +314,11 @@ class mavlinkHandle_t
 		bool getGimbalReturnHome(void);
 		bool applyControlGimbalWithRC(modeRC_control_gimbal_t modeRC, bool RcOrMavlink);
 		bool applyControlJig(modeRC_control_gimbal_t modeControl, controlJigMode_t modeInput, controlJigMode_t modeOutput);
+		bool jigProcessState_IDLE(void);
+		bool jigProcessState_CONNECT(void);
+		bool jigProcessState_PROCESS(void);
+		bool jigProcessState_DONE(void);
+		void jigProcessState(void);
 
 };
 /* Exported constants --------------------------------------------------------*/

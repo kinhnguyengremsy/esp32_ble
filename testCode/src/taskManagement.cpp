@@ -54,26 +54,26 @@ mavlinkHandle_t mavlink;
 */
 JigTestStatus_t taskManagement_t::getJigStatus(void)
 {
-    JigTestStatus_t status;
+    JigTestStatus_t status = jigStatus;
 
     // management.jigReady = mavlink.mavlinkSerial1.heartBeat.flag_heartbeat;
 
-    if(management.jigReady == true)
-    {   
-        /// kiem tra jig state test
-        if(mavlink.state == CONTROL_JIG_STATE_IDLE)
-        {
-            status = JIG_STATUS_STANBY;
-        }
-        else
-        {
-            status = JIG_STATUS_RUNNING;
-        }
-    }
-    else
-    {
-        status = JIG_STATUS_ERROR;
-    }
+    // if(management.jigReady == true)
+    // {   
+    //     /// kiem tra jig state test
+    //     if(mavlink.state == CONTROL_JIG_STATE_IDLE)
+    //     {
+    //         status = JIG_STATUS_STANBY;
+    //     }
+    //     else
+    //     {
+    //         status = JIG_STATUS_RUNNING;
+    //     }
+    // }
+    // else
+    // {
+    //     status = JIG_STATUS_ERROR;
+    // }
 
     return status;
 }
@@ -81,20 +81,20 @@ JigTestStatus_t taskManagement_t::getJigStatus(void)
 /** @brief  getProductStatus
     @return ProductStatus_t
 */
-ProductStatus_t taskManagement_t::getProductStatus(void)
+uint8_t taskManagement_t::getProductStatus(void)
 {
-    ProductStatus_t status;
+    uint8_t productID = 0;
 
     if(productReady == true)
     {
-        status = JIG_STATUS_A_PRODUCT_ATTACHED;
+        productID = mavlink.mavlinkSerial2.heartBeat.vehicle_system_id;
     }
     else
     {
-        status = JIG_STATUS_NO_PRODUCT_ATTACHED;
+        productID = 0;
     }
 
-    return status;
+    return productID;
 }
 
 /** @brief  getProductOnJigTestStatus
@@ -102,24 +102,24 @@ ProductStatus_t taskManagement_t::getProductStatus(void)
 */
 ProductOnJigTestStatus_t taskManagement_t::getProductOnJigTestStatus(void)
 {
-    ProductOnJigTestStatus_t status;
+    ProductOnJigTestStatus_t status = productOnState;
 
-    if(mavlink.state == CONTROL_JIG_STATE_IDLE)
-    {
-        status = PRODUCT_WAIT_FOR_QC;
-    }
-    else if(mavlink.state == CONTROL_JIG_STATE_DONE)
-    {
-        status = PRODUCT_COMPLETE;
-    }
-    else if(mavlink.state == CONTROL_JIG_STATE_ERROR)
-    {
-        status = PRODUCT_FAIL;
-    }
-    else 
-    {
-        status = PRODUCT_RUNNING;
-    }
+    // if(mavlink.state == CONTROL_JIG_STATE_IDLE)
+    // {
+    //     status = PRODUCT_WAIT_FOR_QC;
+    // }
+    // else if(mavlink.state == CONTROL_JIG_STATE_DONE)
+    // {
+    //     status = PRODUCT_COMPLETE;
+    // }
+    // else if(mavlink.state == CONTROL_JIG_STATE_ERROR)
+    // {
+    //     status = PRODUCT_FAIL;
+    // }
+    // else 
+    // {
+    //     status = PRODUCT_RUNNING;
+    // }
 
     return status;
 }
@@ -131,7 +131,7 @@ JigTestQcMode_t taskManagement_t::getQcMode(void)
 {
     JigTestQcMode_t qcMode;
 
-    qcMode = (JigTestQcMode_t)mavlink.mode;
+    qcMode = (JigTestQcMode_t)mavlink.mavlinkSerial1.heartBeat.base_mode;//mavlink.mode;
 
     return qcMode;
 }
@@ -192,6 +192,7 @@ void mavlinkTask( void *pvParameters )
 {
     /// task init
 
+
     for(;;)
     {
 
@@ -214,7 +215,7 @@ void BLETask( void *pvParameters )
 
     for(;;)
     {
-        // mavlink.process(NULL);
+        mavlink.process(NULL);
         ble.process();
     }
 }
@@ -236,14 +237,14 @@ void taskManagement_t::initialize(void)
     ,  ARDUINO_RUNNING_CORE); 
 
     
-    // xTaskCreatePinnedToCore(
-    // mavlinkTask
-    // ,  "mavlinkTask"   // A name just for humans
-    // ,  5 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
-    // ,  NULL
-    // ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
-    // ,  NULL 
-    // ,  ARDUINO_RUNNING_CORE); 
+    xTaskCreatePinnedToCore(
+    mavlinkTask
+    ,  "mavlinkTask"   // A name just for humans
+    ,  5 * 1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); 
 
     // xTaskCreate(&BLETask, "BLETask", 10 * 1024, NULL, 2, NULL);
     // xTaskCreate(&mavlinkTask, "mavlinkTask", 10 * 1024, NULL, 1, NULL);
